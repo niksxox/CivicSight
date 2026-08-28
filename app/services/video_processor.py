@@ -1,21 +1,3 @@
-"""
-CivicSight video processing service.
-
-Responsibilities:
-- Validate video input.
-- Open videos using OpenCV.
-- Read video metadata.
-- Select representative frames.
-- Extract frames as JPEG bytes.
-- Pass extracted frames to ImageAnalyzer when requested.
-- Aggregate image-analysis results.
-
-This module does not:
-- define FastAPI routes
-- call Groq
-- calculate priority
-- implement separate video AI
-"""
 
 from __future__ import annotations
 
