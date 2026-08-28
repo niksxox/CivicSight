@@ -1,17 +1,4 @@
 
-"""
-Resolution / progress verification service for CivicSight.
-
-This service compares previous infrastructure evidence with current
-evidence to determine whether a claimed repair or completion appears
-visually genuine.
-
-Important:
-- Visual evidence does not prove completion with absolute certainty.
-- Results are evidence-based verification estimates.
-- No LLM is used here.
-- Image analysis is delegated to ImageAnalyzer.
-"""
 
 from __future__ import annotations
 
@@ -22,9 +9,7 @@ from typing import Any, Mapping, Optional, Sequence
 from app.services.image_analyzer import ImageAnalyzer
 
 
-# ============================================================
 # Exceptions
-# ============================================================
 
 
 class ResolutionVerificationError(Exception):
@@ -35,9 +20,7 @@ class InvalidEvidenceError(ResolutionVerificationError):
     """Raised when supplied evidence is invalid or missing."""
 
 
-# ============================================================
 # Status
-# ============================================================
 
 
 class VerificationStatus(str, Enum):
@@ -58,9 +41,7 @@ class VerificationStatus(str, Enum):
     UNCERTAIN = "uncertain"
 
 
-# ============================================================
 # Result
-# ============================================================
 
 
 @dataclass(frozen=True)
@@ -88,9 +69,7 @@ class VerificationResult:
         }
 
 
-# ============================================================
 # Resolution Verifier
-# ============================================================
 
 
 class ResolutionVerifier:
@@ -118,10 +97,8 @@ class ResolutionVerifier:
     ImageAnalyzer results without running inference twice.
     """
 
-    # --------------------------------------------------------
     # Condition scoring
-    # --------------------------------------------------------
-    #
+    
     # Lower score = worse condition.
     # Higher score = better condition.
     #
@@ -180,9 +157,7 @@ class ResolutionVerifier:
             else ImageAnalyzer()
         )
 
-    # ========================================================
     # Public API
-    # ========================================================
 
     def verify(
         self,
@@ -211,9 +186,7 @@ class ResolutionVerifier:
         accidentally causing analysis of the previous image first.
         """
 
-        # ----------------------------------------------------
         # Validate explicitly supplied raw images FIRST.
-        # ----------------------------------------------------
 
         self._validate_raw_image_argument(
             previous_image_bytes,
@@ -225,9 +198,7 @@ class ResolutionVerifier:
             label="Current",
         )
 
-        # ----------------------------------------------------
         # Resolve evidence.
-        # ----------------------------------------------------
 
         previous = self._resolve_evidence(
             evidence=previous_evidence,
@@ -243,9 +214,7 @@ class ResolutionVerifier:
             label="current",
         )
 
-        # ----------------------------------------------------
         # Extract conditions.
-        # ----------------------------------------------------
 
         previous_condition = self._extract_condition(
             previous
@@ -255,9 +224,7 @@ class ResolutionVerifier:
             current
         )
 
-        # ----------------------------------------------------
         # Calculate condition scores.
-        # ----------------------------------------------------
 
         previous_score = self._condition_score(
             previous_condition
@@ -267,9 +234,7 @@ class ResolutionVerifier:
             current_condition
         )
 
-        # ----------------------------------------------------
         # Calculate verification confidence.
-        # ----------------------------------------------------
 
         confidence = (
             self._calculate_verification_confidence(
@@ -280,9 +245,7 @@ class ResolutionVerifier:
             )
         )
 
-        # ----------------------------------------------------
         # Determine verification status.
-        # ----------------------------------------------------
 
         status = self._determine_status(
             previous=previous,
@@ -300,9 +263,7 @@ class ResolutionVerifier:
             status=status,
         ).to_dict()
 
-    # ========================================================
     # Convenience APIs
-    # ========================================================
 
     def verify_results(
         self,
@@ -332,9 +293,7 @@ class ResolutionVerifier:
             current_image_bytes=current_image_bytes,
         )
 
-    # ========================================================
     # Raw Image Validation
-    # ========================================================
 
     @staticmethod
     def _validate_raw_image_argument(
@@ -371,9 +330,7 @@ class ResolutionVerifier:
                 f"{label} evidence is required."
             )
 
-    # ========================================================
     # Evidence Resolution
-    # ========================================================
 
     def _resolve_evidence(
         self,
@@ -402,9 +359,7 @@ class ResolutionVerifier:
             else evidence
         )
 
-        # ----------------------------------------------------
         # Explicit result/evidence.
-        # ----------------------------------------------------
 
         if candidate is not None:
 
@@ -431,19 +386,16 @@ class ResolutionVerifier:
                     f"{label.capitalize()} evidence is invalid."
                 )
 
-        # ----------------------------------------------------
         # No evidence supplied.
-        # ----------------------------------------------------
 
         if image_bytes is None:
             raise InvalidEvidenceError(
                 f"{label.capitalize()} evidence is required."
             )
 
-        # ----------------------------------------------------
         # Validate image bytes again for internally resolved
         # byte-like evidence.
-        # ----------------------------------------------------
+        
 
         if not self._looks_like_image_bytes(
             image_bytes
@@ -453,9 +405,7 @@ class ResolutionVerifier:
                 "non-empty bytes."
             )
 
-        # ----------------------------------------------------
         # Analyze image.
-        # ----------------------------------------------------
 
         try:
             analyzed = self.image_analyzer.analyze(
@@ -477,9 +427,7 @@ class ResolutionVerifier:
 
         return analyzed
 
-    # ========================================================
     # Evidence Type Helpers
-    # ========================================================
 
     @staticmethod
     def _looks_like_image_bytes(
@@ -600,9 +548,7 @@ class ResolutionVerifier:
 
         return None
 
-    # ========================================================
     # Condition Extraction
-    # ========================================================
 
     def _extract_condition(
         self,
@@ -665,9 +611,7 @@ class ResolutionVerifier:
 
         return None
 
-    # ========================================================
     # Condition Scoring
-    # ========================================================
 
     def _condition_score(
         self,
@@ -705,9 +649,7 @@ class ResolutionVerifier:
         if not normalized:
             return 50.0
 
-        # ----------------------------------------------------
         # Exact/specific compound matches FIRST.
-        # ----------------------------------------------------
 
         specific_scores = (
             (
@@ -748,9 +690,7 @@ class ResolutionVerifier:
             ):
                 return score
 
-        # ----------------------------------------------------
         # Exact known values.
-        # ----------------------------------------------------
 
         exact_score = (
             self._CONDITION_SCORES.get(
@@ -761,9 +701,7 @@ class ResolutionVerifier:
         if exact_score is not None:
             return exact_score
 
-        # ----------------------------------------------------
         # Generic semantic phrases.
-        # ----------------------------------------------------
 
         if any(
             phrase in normalized
@@ -805,19 +743,7 @@ class ResolutionVerifier:
         ):
             return 75.0
 
-        # ----------------------------------------------------
-        # Completion matching must be phrase-aware.
-        #
-        # Do NOT use:
-        #
-        #     "complete" in normalized
-        #
-        # because:
-        #
-        #     "completely unrelated"
-        #
-        # would incorrectly score as completed.
-        # ----------------------------------------------------
+
 
         if any(
             phrase in normalized
@@ -868,9 +794,7 @@ class ResolutionVerifier:
             .split()
         )
 
-    # ========================================================
     # Verification Confidence
-    # ========================================================
 
     def _calculate_verification_confidence(
         self,
@@ -909,9 +833,7 @@ class ResolutionVerifier:
             + current_confidence
         ) / 2.0
 
-        # ----------------------------------------------------
         # Strength of observed change.
-        # ----------------------------------------------------
 
         if improvement >= 50:
             change_strength = 95.0
@@ -942,10 +864,8 @@ class ResolutionVerifier:
             + (evidence_confidence * 0.35)
         )
 
-        # ----------------------------------------------------
         # Same infrastructure type increases confidence.
         # Different infrastructure types reduce confidence.
-        # ----------------------------------------------------
 
         previous_infrastructure = (
             self._extract_optional_text(
@@ -992,9 +912,7 @@ class ResolutionVerifier:
             100.0,
         )
 
-    # ========================================================
     # Status Determination
-    # ========================================================
 
     def _determine_status(
         self,
@@ -1038,9 +956,7 @@ class ResolutionVerifier:
             )
         )
 
-        # ----------------------------------------------------
         # Clearly worse.
-        # ----------------------------------------------------
 
         if improvement < -10:
             return (
@@ -1049,9 +965,7 @@ class ResolutionVerifier:
                 .value
             )
 
-        # ----------------------------------------------------
         # Strong completion signal.
-        # ----------------------------------------------------
 
         if (
             improvement >= 20
@@ -1065,9 +979,7 @@ class ResolutionVerifier:
                 .value
             )
 
-        # ----------------------------------------------------
         # Strong general improvement.
-        # ----------------------------------------------------
 
         if improvement >= 20:
             return (
@@ -1075,13 +987,6 @@ class ResolutionVerifier:
                 .IMPROVEMENT_APPEARS_GENUINE
                 .value
             )
-
-        # ----------------------------------------------------
-        # No meaningful improvement.
-        #
-        # Only use this when both pieces of evidence are
-        # reasonably reliable.
-        # ----------------------------------------------------
 
         if improvement <= 0:
 
@@ -1107,9 +1012,7 @@ class ResolutionVerifier:
                     .value
                 )
 
-        # ----------------------------------------------------
         # Small positive/ambiguous change.
-        # ----------------------------------------------------
 
         return (
             VerificationStatus
@@ -1149,9 +1052,7 @@ class ResolutionVerifier:
             for phrase in completion_phrases
         )
 
-    # ========================================================
     # Confidence Extraction
-    # ========================================================
 
     def _extract_confidence(
         self,
@@ -1206,9 +1107,7 @@ class ResolutionVerifier:
             100.0,
         )
 
-    # ========================================================
     # Optional Text Extraction
-    # ========================================================
 
     def _extract_optional_text(
         self,
@@ -1238,9 +1137,7 @@ class ResolutionVerifier:
 
         return text or None
 
-    # ========================================================
     # Numeric Helpers
-    # ========================================================
 
     @staticmethod
     def _clamp(
