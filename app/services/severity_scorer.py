@@ -1,39 +1,5 @@
-"""
-CivicSight AI Infrastructure Intelligence
-------------------------------------------
 
-Deterministic severity calculation service.
-
-Responsibilities:
-- Convert infrastructure condition into a normalized score.
-- Convert issue type into a normalized score.
-- Convert project delay into a normalized score.
-- Convert public impact into a normalized score.
-- Calculate a deterministic 0-100 severity score.
-- Classify the score as Low, Medium, or High.
-- Provide a deterministic explanation.
-
-Design:
-- No FastAPI dependency.
-- No database dependency.
-- No LLM dependency.
-- Deterministic and repeatable.
-- Missing factors are excluded and remaining weights are
-  renormalized.
-- Final score is always between 0 and 100.
-"""
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-from enum import Enum
-from math import isfinite
-from typing import Any
-
-
-# ============================================================
 # Weights
-# ============================================================
 
 CONDITION_WEIGHT = 0.50
 ISSUE_WEIGHT = 0.20
@@ -53,9 +19,7 @@ if abs(TOTAL_WEIGHT - 1.0) > 1e-9:
     )
 
 
-# ============================================================
 # Severity enum
-# ============================================================
 
 
 class SeverityLevel(str, Enum):
@@ -66,9 +30,7 @@ class SeverityLevel(str, Enum):
     HIGH = "High"
 
 
-# ============================================================
 # Result model
-# ============================================================
 
 
 @dataclass(frozen=True)
@@ -106,9 +68,8 @@ class SeverityResult:
         }
 
 
-# ============================================================
+
 # Exceptions
-# ============================================================
 
 
 class SeverityScoringError(Exception):
@@ -121,9 +82,7 @@ class InvalidSeverityInputError(
     """Raised when severity input is invalid."""
 
 
-# ============================================================
 # Text normalization
-# ============================================================
 
 
 def _normalize_text(value: Any) -> str:
@@ -157,9 +116,7 @@ def _normalize_text(value: Any) -> str:
     )
 
 
-# ============================================================
 # Numeric helpers
-# ============================================================
 
 
 def _clamp_score(score: Any) -> float:
@@ -202,9 +159,7 @@ def _is_supplied(value: Any) -> bool:
     return value is not None
 
 
-# ============================================================
 # Condition scoring
-# ============================================================
 
 
 def _condition_score(
@@ -242,9 +197,7 @@ def _condition_score(
     )
 
 
-# ============================================================
 # Issue scoring
-# ============================================================
 
 
 def _issue_score(
@@ -296,9 +249,7 @@ def _issue_score(
     )
 
 
-# ============================================================
 # Delay scoring
-# ============================================================
 
 
 def _delay_score(
@@ -393,9 +344,7 @@ def _delay_score(
     return 100.0
 
 
-# ============================================================
 # Impact scoring
-# ============================================================
 
 
 def _impact_score(
@@ -473,9 +422,7 @@ def _impact_score(
         return 40.0
 
 
-# ============================================================
 # Severity classification
-# ============================================================
 
 
 def classify_severity(
@@ -504,9 +451,7 @@ def classify_severity(
     return SeverityLevel.HIGH
 
 
-# ============================================================
 # Explanation
-# ============================================================
 
 
 def _build_explanation(
@@ -575,9 +520,7 @@ def _build_explanation(
     )
 
 
-# ============================================================
 # Main calculation
-# ============================================================
 
 
 def calculate_severity(
@@ -605,9 +548,7 @@ def calculate_severity(
     factors: dict[str, float] = {}
     weights: dict[str, float] = {}
 
-    # --------------------------------------------------------
     # Condition
-    # --------------------------------------------------------
 
     if _is_supplied(condition):
 
@@ -621,9 +562,7 @@ def calculate_severity(
             CONDITION_WEIGHT
         )
 
-    # --------------------------------------------------------
     # Issue
-    # --------------------------------------------------------
 
     if _is_supplied(issue):
 
@@ -637,9 +576,7 @@ def calculate_severity(
             ISSUE_WEIGHT
         )
 
-    # --------------------------------------------------------
     # Delay
-    # --------------------------------------------------------
 
     if _is_supplied(delay):
 
@@ -653,9 +590,7 @@ def calculate_severity(
             DELAY_WEIGHT
         )
 
-    # --------------------------------------------------------
     # Impact
-    # --------------------------------------------------------
 
     if _is_supplied(impact):
 
@@ -669,9 +604,7 @@ def calculate_severity(
             IMPACT_WEIGHT
         )
 
-    # --------------------------------------------------------
     # No factors
-    # --------------------------------------------------------
 
     if not factors:
 
@@ -694,9 +627,7 @@ def calculate_severity(
             explanation=explanation,
         )
 
-    # --------------------------------------------------------
     # Renormalize supplied weights
-    # --------------------------------------------------------
 
     total_weight = sum(
         weights.values()
@@ -746,9 +677,7 @@ def calculate_severity(
     )
 
 
-# ============================================================
 # JSON-friendly API
-# ============================================================
 
 
 def score_severity(
@@ -772,9 +701,7 @@ def score_severity(
     return result.to_dict()
 
 
-# ============================================================
 # Compatibility alias
-# ============================================================
 
 
 def calculate_severity_dict(
@@ -796,9 +723,7 @@ def calculate_severity_dict(
     )
 
 
-# ============================================================
 # Public exports
-# ============================================================
 
 
 __all__ = [
