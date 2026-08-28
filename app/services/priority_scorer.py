@@ -1,31 +1,4 @@
-"""
-CivicSight AI Infrastructure Intelligence
-------------------------------------------
 
-Deterministic priority scoring service.
-
-Responsibilities:
-- Calculate infrastructure/project priority.
-- Normalize project delay.
-- Normalize infrastructure condition.
-- Normalize affected population.
-- Normalize project importance.
-- Normalize issue severity.
-- Normalize duration.
-- Normalize historical data.
-- Produce a deterministic 0-100 priority score.
-- Classify priority as Low, Medium, High, or Critical.
-- Recommend an operational action.
-
-Design:
-- No FastAPI dependency.
-- No database dependency.
-- No LLM dependency.
-- Deterministic and explainable.
-- Score always remains between 0 and 100.
-- Compatible with the FastAPI route through PriorityScorer.
-- Module-level functions are preserved for direct service use.
-"""
 
 from __future__ import annotations
 
@@ -48,9 +21,8 @@ from app.utils.constants import (
 )
 
 
-# ============================================================
+
 # Scoring weights
-# ============================================================
 
 DELAY_WEIGHT = 0.20
 CONDITION_WEIGHT = 0.20
@@ -76,9 +48,7 @@ if abs(TOTAL_WEIGHT - 1.0) > 1e-9:
     )
 
 
-# ============================================================
 # Exceptions
-# ============================================================
 
 
 class PriorityScoringError(Exception):
@@ -92,9 +62,7 @@ class InvalidPriorityInputError(
     """Raised when priority input is invalid."""
 
 
-# ============================================================
 # General helpers
-# ============================================================
 
 
 def _normalize_text(value: Any) -> str:
@@ -204,9 +172,8 @@ def _to_non_negative_float(
     return numeric
 
 
-# ============================================================
 # Delay normalization
-# ============================================================
+
 
 
 def _normalize_delay(
@@ -237,9 +204,7 @@ def _normalize_delay(
     )
 
 
-# ============================================================
 # Condition normalization
-# ============================================================
 
 
 def _normalize_condition(
@@ -294,9 +259,7 @@ def _normalize_condition(
     return 40.0
 
 
-# ============================================================
 # Population normalization
-# ============================================================
 
 
 def _normalize_population(
@@ -341,9 +304,7 @@ def _normalize_population(
     return 100.0
 
 
-# ============================================================
 # Importance normalization
-# ============================================================
 
 
 def _normalize_importance(
@@ -409,9 +370,7 @@ def _normalize_importance(
         return 50.0
 
 
-# ============================================================
 # Severity normalization
-# ============================================================
 
 
 def _normalize_severity(
@@ -482,9 +441,7 @@ def _normalize_severity(
         return 55.0
 
 
-# ============================================================
 # Duration normalization
-# ============================================================
 
 
 def _duration_days_to_score(
@@ -583,9 +540,7 @@ def _normalize_duration(
             "duration cannot be a boolean."
         )
 
-    # --------------------------------------------------------
     # Numeric duration
-    # --------------------------------------------------------
 
     if isinstance(
         duration,
@@ -600,9 +555,7 @@ def _normalize_duration(
             days
         )
 
-    # --------------------------------------------------------
     # Normalize string
-    # --------------------------------------------------------
 
     normalized = _normalize_text(
         duration
@@ -611,7 +564,6 @@ def _normalize_duration(
     if not normalized:
         return 0.0
 
-    # --------------------------------------------------------
     # Numeric string
     #
     # Must be handled BEFORE unit parsing so:
@@ -619,7 +571,6 @@ def _normalize_duration(
     #     "-10"
     #
     # raises instead of becoming neutral 50.
-    # --------------------------------------------------------
 
     numeric_match = re.fullmatch(
         r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)",
@@ -656,9 +607,7 @@ def _normalize_duration(
             days
         )
 
-    # --------------------------------------------------------
     # Unit-based duration
-    # --------------------------------------------------------
 
     match = re.fullmatch(
         r"(\d+(?:\.\d+)?)\s*"
@@ -685,9 +634,7 @@ def _normalize_duration(
 
     unit = match.group(2)
 
-    # --------------------------------------------------------
     # Convert to days
-    # --------------------------------------------------------
 
     if unit in {
         "day",
@@ -731,9 +678,7 @@ def _normalize_duration(
     )
 
 
-# ============================================================
 # Historical normalization
-# ============================================================
 
 
 def _normalize_historical_data(
@@ -842,9 +787,7 @@ def _normalize_historical_data(
         return 50.0
 
 
-# ============================================================
 # Priority classification
-# ============================================================
 
 
 def classify_priority(
@@ -877,9 +820,7 @@ def classify_priority(
     return PriorityLevel.CRITICAL
 
 
-# ============================================================
 # Recommended action
-# ============================================================
 
 
 def recommend_action(
@@ -958,9 +899,7 @@ class PriorityResult:
         return response.dict()
 
 
-# ============================================================
 # Core calculation
-# ============================================================
 
 
 def calculate_priority(
@@ -1076,9 +1015,7 @@ def calculate_priority(
     )
 
 
-# ============================================================
 # JSON-friendly API
-# ============================================================
 
 
 def score_priority(
@@ -1118,9 +1055,7 @@ def score_priority(
     return result.to_dict()
 
 
-# ============================================================
 # FastAPI-compatible service class
-# ============================================================
 
 
 class PriorityScorer:
@@ -1164,9 +1099,7 @@ class PriorityScorer:
         )
 
 
-# ============================================================
 # Public exports
-# ============================================================
 
 
 __all__ = [
