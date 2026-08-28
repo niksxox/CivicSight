@@ -1,53 +1,4 @@
-"""
-CivicSight - Project Progress Assessment Service
-=================================================
 
-Phase 4: Project Progress
-
-Responsibilities:
-    - Validate planned project progress.
-    - Consume observable actual-progress evidence.
-    - Calculate progress deviation.
-    - Determine project progress status.
-    - Return the validated Pydantic response model.
-
-Processing:
-
-    Planned Progress
-           +
-    Estimated Actual Progress
-           |
-           v
-       Deviation
-           |
-           v
-         Status
-
-Formula:
-
-    deviation = actual - planned
-
-Example:
-
-    planned = 80
-    actual = 58
-
-    deviation = -22
-    status = delayed
-
-Important:
-    This service does NOT:
-    - call Groq
-    - analyze raw images
-    - access the database
-    - contain FastAPI routes
-    - calculate severity
-    - calculate priority
-
-The image/video/LLM layers are responsible for producing
-observable progress evidence. This service performs the
-deterministic comparison.
-"""
 
 from __future__ import annotations
 
@@ -60,9 +11,7 @@ from app.models.progress_models import (
 )
 
 
-# ============================================================
 # Exceptions
-# ============================================================
 
 
 class ProgressAssessmentError(ValueError):
@@ -79,9 +28,7 @@ class InsufficientProgressEvidenceError(
     """Raised when actual progress cannot be determined."""
 
 
-# ============================================================
 # Progress Status
-# ============================================================
 
 
 class ProgressStatus(str, Enum):
@@ -104,9 +51,7 @@ class ProgressStatus(str, Enum):
     DELAYED = "delayed"
 
 
-# ============================================================
 # Progress Assessor
-# ============================================================
 
 
 class ProgressAssessor:
@@ -137,23 +82,17 @@ class ProgressAssessor:
         status = delayed
     """
 
-    # --------------------------------------------------------
     # Percentage boundaries
-    # --------------------------------------------------------
 
     MIN_PROGRESS = 0.0
 
     MAX_PROGRESS = 100.0
 
-    # --------------------------------------------------------
     # Status tolerance
-    # --------------------------------------------------------
 
     DEFAULT_TOLERANCE = 5.0
 
-    # --------------------------------------------------------
     # Accepted evidence field names
-    # --------------------------------------------------------
 
     ACTUAL_PROGRESS_FIELDS = (
         "estimated_actual_progress",
@@ -162,9 +101,7 @@ class ProgressAssessor:
         "progress",
     )
 
-    # ========================================================
     # Initialization
-    # ========================================================
 
     def __init__(
         self,
@@ -213,9 +150,7 @@ class ProgressAssessor:
 
         self.tolerance = tolerance_value
 
-    # ========================================================
     # Public assessment API
-    # ========================================================
 
     def assess(
         self,
@@ -271,18 +206,14 @@ class ProgressAssessor:
                 Actual progress is unavailable.
         """
 
-        # ----------------------------------------------------
         # Validate planned progress
-        # ----------------------------------------------------
 
         planned = self._validate_progress(
             planned_progress,
             field_name="planned_progress",
         )
 
-        # ----------------------------------------------------
         # Resolve actual progress
-        # ----------------------------------------------------
 
         if (
             estimated_actual_progress
@@ -302,26 +233,20 @@ class ProgressAssessor:
                 )
             )
 
-        # ----------------------------------------------------
         # Calculate deviation
-        # ----------------------------------------------------
 
         deviation = self.calculate_deviation(
             actual_progress=actual,
             planned_progress=planned,
         )
 
-        # ----------------------------------------------------
         # Determine status
-        # ----------------------------------------------------
 
         status = self.determine_status(
             deviation
         )
 
-        # ----------------------------------------------------
         # Return API-compatible Pydantic model
-        # ----------------------------------------------------
 
         return ProgressAssessmentResponse(
             planned_progress=planned,
@@ -330,9 +255,7 @@ class ProgressAssessor:
             status=status.value,
         )
 
-    # ========================================================
     # Deviation
-    # ========================================================
 
     def calculate_deviation(
         self,
@@ -369,9 +292,7 @@ class ProgressAssessor:
             2,
         )
 
-    # ========================================================
     # Status
-    # ========================================================
 
     def determine_status(
         self,
@@ -428,9 +349,7 @@ class ProgressAssessor:
 
         return ProgressStatus.ON_TRACK
 
-    # ========================================================
     # Evidence extraction
-    # ========================================================
 
     def _extract_actual_progress(
         self,
@@ -473,9 +392,7 @@ class ProgressAssessor:
                 "processed progress evidence."
             )
 
-        # ----------------------------------------------------
         # Direct numeric evidence
-        # ----------------------------------------------------
 
         if (
             isinstance(evidence, Real)
@@ -488,9 +405,7 @@ class ProgressAssessor:
                 ),
             )
 
-        # ----------------------------------------------------
         # Mapping / dictionary evidence
-        # ----------------------------------------------------
 
         if isinstance(
             evidence,
@@ -515,9 +430,7 @@ class ProgressAssessor:
                 ),
             )
 
-        # ----------------------------------------------------
         # Pydantic model / normal object
-        # ----------------------------------------------------
 
         for field_name in (
             self.ACTUAL_PROGRESS_FIELDS
@@ -550,9 +463,7 @@ class ProgressAssessor:
             "'actual_progress'."
         )
 
-    # ========================================================
     # Mapping evidence
-    # ========================================================
 
     @classmethod
     def _find_mapping_value(
@@ -581,9 +492,7 @@ class ProgressAssessor:
 
         return None
 
-    # ========================================================
     # Progress validation
-    # ========================================================
 
     @classmethod
     def _validate_progress(
@@ -645,9 +554,7 @@ class ProgressAssessor:
             2,
         )
 
-    # ========================================================
     # Finite-number validation
-    # ========================================================
 
     @staticmethod
     def _validate_finite_number(
@@ -672,17 +579,13 @@ class ProgressAssessor:
                 f"{field_name} must be finite."
             )
 
-    # ========================================================
     # Compatibility aliases
-    # ========================================================
 
 
 ProjectProgressAssessor = ProgressAssessor
 
 
-# ============================================================
 # Convenience API
-# ============================================================
 
 
 def assess_progress(
@@ -737,9 +640,7 @@ def assess_progress(
     return result.dict()
 
 
-# ============================================================
 # Public exports
-# ============================================================
 
 
 __all__ = [
