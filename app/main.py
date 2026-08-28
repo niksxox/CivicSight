@@ -1,20 +1,4 @@
 
-"""
-CivSight AI Infrastructure Intelligence
----------------------------------------
-
-FastAPI application entry point.
-
-Responsibilities:
-    - Create the FastAPI application.
-    - Register API routers.
-    - Configure API metadata.
-    - Expose Swagger/OpenAPI documentation.
-
-Business logic belongs in app/services/.
-HTTP route definitions belong in app/api/routes.py.
-"""
-
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -22,9 +6,7 @@ from fastapi import FastAPI
 from app.api.routes import router
 
 
-# ---------------------------------------------------------------------------
 # Application metadata
-# ---------------------------------------------------------------------------
 
 APP_TITLE = "CivSight AI Infrastructure Intelligence"
 APP_DESCRIPTION = (
@@ -35,9 +17,7 @@ APP_DESCRIPTION = (
 APP_VERSION = "1.0.0"
 
 
-# ---------------------------------------------------------------------------
 # Application factory
-# ---------------------------------------------------------------------------
 
 
 def create_app() -> FastAPI:
@@ -62,16 +42,11 @@ def create_app() -> FastAPI:
     return application
 
 
-# ---------------------------------------------------------------------------
 # Application instance
-# ---------------------------------------------------------------------------
 
 app = create_app()
 
 
-# ---------------------------------------------------------------------------
-# Health check
-# ---------------------------------------------------------------------------
 # This is an infrastructure-level health endpoint, not an additional
 # AI-service endpoint. It is useful for confirming that FastAPI itself
 # started successfully before testing the five mandatory AI endpoints.
