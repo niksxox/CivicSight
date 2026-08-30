@@ -1,10 +1,201 @@
-# Installed dependencies
+# ============================================================
+# CIVICSIGHT - GITIGNORE
+# ============================================================
+
+# Node.js
 node_modules/
 
-# Local environment configuration and credentials
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+sdist/
+wheels/
+pip-wheel-metadata/
+
+# Testing / coverage
+.pytest_cache/
+.tox/
+.nox/
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# Type checking / linting
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables / secrets
+>>>>>>> origin/main
 .env
 .env.*
 !.env.example
 
+# Credentials / keys
+credentials.json
+secrets.json
+service-account.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# ============================================================
+# AI / ML ARTIFACTS
+# Only root-level downloaded model directories are ignored.
+# app/models/ contains SOURCE CODE and MUST be committed.
+# ============================================================
+
+/models/
+/model/
+/checkpoints/
+/checkpoint/
+/weights/
+/runs/
+
+# Large model files
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.onnx
+*.h5
+*.keras
+
+# ML caches
+.huggingface/
+huggingface/
+.cache/huggingface/
+.cache/torch/
+.cache/transformers/
+torch_cache/
+
+# ============================================================
+# Local / generated data
+# ============================================================
+
+uploads/
+uploaded_files/
+temp/
+tmp/
+data/
+outputs/
+results/
+
+# Generated media
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.bmp
+*.tiff
+*.wav
+*.mp3
+
 # Logs
 *.log
+logs/
+log/
+*.out
+
+# FastAPI / Uvicorn
+*.pid
+*.sock
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.stackdump
+*.tmp
+*.temp
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+
+# Linux
+*~
+.nfs*
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker local data
+docker-data/
+docker-volumes/
+
+# Temporary editor files
+*.swp
+*.swo
+*.swn
+*.bak
+*.orig
+*.rej
+
+# Local configuration
+.local/
+.local.*
+*.local
+
+# Generated documentation
+generated/
+generated_reports/
+
+# Project-specific local files
+.local-ai/
+.ai-cache/
+.debug/
+debug/
+scratch/
