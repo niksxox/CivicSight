@@ -8,6 +8,7 @@ geography columns instead of two separate float columns.
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
+from shapely.geometry import MultiPolygon, Polygon
 from shapely import wkt
 
 
@@ -22,6 +23,7 @@ def facilities_to_geodataframe(df: pd.DataFrame) -> gpd.GeoDataFrame:
     df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
     df = df.dropna(subset=["latitude", "longitude"])
+    df = df[df["latitude"].between(-90, 90) & df["longitude"].between(-180, 180)]
     geometry = [Point(lng, lat) for lng, lat in zip(df["longitude"], df["latitude"])]
     return gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
 
@@ -29,7 +31,19 @@ def facilities_to_geodataframe(df: pd.DataFrame) -> gpd.GeoDataFrame:
 def district_population_to_geodataframe(df: pd.DataFrame) -> gpd.GeoDataFrame:
     """boundary_wkt column -> real polygon geometry."""
     df = df.copy()
-    df["geometry"] = df["boundary_wkt"].apply(lambda w: wkt.loads(w) if isinstance(w, str) and w.strip() else None)
+    def parse_boundary(value):
+        if not isinstance(value, str) or not value.strip():
+            return None
+        try:
+            geom = wkt.loads(value)
+        except Exception:
+            return None
+        if isinstance(geom, Polygon):
+            geom = MultiPolygon([geom])
+        if not isinstance(geom, MultiPolygon) or not geom.is_valid:
+            return None
+        return geom
+    df["geometry"] = df["boundary_wkt"].apply(parse_boundary)
     df = df.dropna(subset=["geometry"])
     gdf = gpd.GeoDataFrame(df, geometry="geometry", crs="EPSG:4326")
     gdf["population"] = pd.to_numeric(gdf["population"], errors="coerce")
@@ -40,6 +54,16 @@ def district_population_to_geodataframe(df: pd.DataFrame) -> gpd.GeoDataFrame:
 def network_to_geodataframe(df: pd.DataFrame) -> gpd.GeoDataFrame:
     """geom_wkt column (LINESTRING) -> real line geometry."""
     df = df.copy()
-    df["geometry"] = df["geom_wkt"].apply(lambda w: wkt.loads(w) if isinstance(w, str) and w.strip() else None)
+    def parse_line(value):
+        if not isinstance(value, str) or not value.strip():
+            return None
+        try:
+            geom = wkt.loads(value)
+        except Exception:
+            return None
+        if geom.geom_type != "LineString" or not geom.is_valid:
+            return None
+        return geom
+    df["geometry"] = df["geom_wkt"].apply(parse_line)
     df = df.dropna(subset=["geometry"])
     return gpd.GeoDataFrame(df, geometry="geometry", crs="EPSG:4326")

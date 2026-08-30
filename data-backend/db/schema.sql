@@ -119,11 +119,17 @@ CREATE TABLE IF NOT EXISTS facilities (
     name        TEXT NOT NULL,
     type        TEXT NOT NULL,   -- school | hospital | transport | water | government
     location    GEOGRAPHY(POINT, 4326) NOT NULL,
-    district    TEXT
+    district    TEXT,
+    source_ref  TEXT,
+    geo_precision TEXT DEFAULT 'source_coordinates'
 );
 
 CREATE INDEX IF NOT EXISTS idx_facilities_location ON facilities USING GIST (location);
 CREATE INDEX IF NOT EXISTS idx_facilities_type ON facilities (type);
+ALTER TABLE facilities ADD COLUMN IF NOT EXISTS source_ref TEXT;
+ALTER TABLE facilities ADD COLUMN IF NOT EXISTS geo_precision TEXT DEFAULT 'source_coordinates';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_facilities_type_source_ref
+    ON facilities (type, source_ref) WHERE source_ref IS NOT NULL;
 
 -- ------------------------------------------------------------
 -- district_population — population + GIS boundary per district
@@ -147,13 +153,97 @@ CREATE INDEX IF NOT EXISTS idx_district_boundary ON district_population USING GI
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS infrastructure_network (
     id          SERIAL PRIMARY KEY,
+    source_ref  TEXT,
     name        TEXT,
     type        TEXT,   -- road | rail | water_line | power_line
     geom        GEOGRAPHY(LINESTRING, 4326) NOT NULL,
-    district    TEXT
+    district    TEXT,
+    length_km   NUMERIC(12, 3),
+    status      TEXT,
+    geo_precision TEXT DEFAULT 'source_geometry',
+    source_metadata JSONB DEFAULT '{}'::jsonb
 );
 
 CREATE INDEX IF NOT EXISTS idx_network_geom ON infrastructure_network USING GIST (geom);
+ALTER TABLE infrastructure_network ADD COLUMN IF NOT EXISTS source_ref TEXT;
+ALTER TABLE infrastructure_network ADD COLUMN IF NOT EXISTS length_km NUMERIC(12, 3);
+ALTER TABLE infrastructure_network ADD COLUMN IF NOT EXISTS status TEXT;
+ALTER TABLE infrastructure_network ADD COLUMN IF NOT EXISTS geo_precision TEXT DEFAULT 'source_geometry';
+ALTER TABLE infrastructure_network ADD COLUMN IF NOT EXISTS source_metadata JSONB DEFAULT '{}'::jsonb;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_network_type_source_ref
+    ON infrastructure_network (type, source_ref) WHERE source_ref IS NOT NULL;
+
+-- ------------------------------------------------------------
+-- infrastructure_coverage — non-spatial aggregate public data
+-- such as state-level PMGSY/JJM files that do not include point
+-- or line geometry. These are intentionally not map features.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS infrastructure_coverage (
+    id                    SERIAL PRIMARY KEY,
+    source                TEXT NOT NULL,
+    area_level            TEXT NOT NULL,
+    state                 TEXT NOT NULL,
+    district              TEXT,
+    district_key          TEXT NOT NULL DEFAULT '',
+    metric_name           TEXT NOT NULL,
+    metric_value          NUMERIC(16, 3),
+    secondary_metric_name TEXT,
+    secondary_metric_value NUMERIC(16, 3),
+    total_households_lakh NUMERIC(16, 3),
+    geo_precision         TEXT NOT NULL,
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_coverage_source_state ON infrastructure_coverage (source, state);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_coverage_dataset_area_metric
+    ON infrastructure_coverage (source, area_level, state, district_key, metric_name);
+
+-- ------------------------------------------------------------
+-- lgd_villages — national-scale LGD village reference table.
+-- Loader reads CSV in chunks so 650k+ rows are laptop-safe.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS lgd_villages (
+    village_code TEXT PRIMARY KEY,
+    village_name TEXT NOT NULL,
+    state        TEXT,
+    district     TEXT,
+    block        TEXT,
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lgd_villages_lookup ON lgd_villages (state, district, block, village_name);
+
+-- ------------------------------------------------------------
+-- schools — synthetic/representative school infrastructure data.
+-- Not official UDISE+ records; used for prototype demonstration.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS schools (
+    id                  SERIAL PRIMARY KEY,
+    school_id           TEXT UNIQUE NOT NULL,
+    school_name         TEXT NOT NULL,
+    state               TEXT NOT NULL,
+    district            TEXT NOT NULL,
+    block               TEXT,
+    village             TEXT,
+    location            GEOGRAPHY(POINT, 4326) NOT NULL,
+    school_category     TEXT,
+    management          TEXT,
+    student_count       INTEGER,
+    teacher_count       INTEGER,
+    classroom_count     INTEGER,
+    has_electricity     BOOLEAN DEFAULT TRUE,
+    has_drinking_water  BOOLEAN DEFAULT TRUE,
+    has_toilet          BOOLEAN DEFAULT TRUE,
+    has_girls_toilet    BOOLEAN DEFAULT TRUE,
+    has_ramp            BOOLEAN DEFAULT TRUE,
+    has_computer        BOOLEAN DEFAULT TRUE,
+    has_internet        BOOLEAN DEFAULT TRUE,
+    has_library         BOOLEAN DEFAULT TRUE,
+    has_playground      BOOLEAN DEFAULT TRUE
+);
+
+CREATE INDEX IF NOT EXISTS idx_schools_location ON schools USING GIST (location);
+CREATE INDEX IF NOT EXISTS idx_schools_district ON schools (district);
 
 -- ------------------------------------------------------------
 -- Trigger: keep updated_at fresh on projects

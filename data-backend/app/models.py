@@ -10,6 +10,7 @@ from sqlalchemy import (
     Column, Integer, String, Text, Numeric, Date, DateTime, Boolean,
     ForeignKey, Enum, func, BigInteger
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -113,6 +114,8 @@ class Facility(Base):
     type = Column(Text, nullable=False)  # school | hospital | transport | water | government
     location = Column(Geography(geometry_type="POINT", srid=4326), nullable=False)
     district = Column(Text)
+    source_ref = Column(Text)
+    geo_precision = Column(Text)
 
 
 class DistrictPopulation(Base):
@@ -130,7 +133,68 @@ class InfrastructureNetwork(Base):
     __tablename__ = "infrastructure_network"
 
     id = Column(Integer, primary_key=True)
+    source_ref = Column(Text)
     name = Column(Text)
     type = Column(Text)  # road | rail | water_line | power_line
     geom = Column(Geography(geometry_type="LINESTRING", srid=4326), nullable=False)
     district = Column(Text)
+    length_km = Column(Numeric(12, 3))
+    status = Column(Text)
+    geo_precision = Column(Text)
+    source_metadata = Column(JSONB)
+
+
+class InfrastructureCoverage(Base):
+    __tablename__ = "infrastructure_coverage"
+
+    id = Column(Integer, primary_key=True)
+    source = Column(Text, nullable=False)
+    area_level = Column(Text, nullable=False)
+    state = Column(Text, nullable=False)
+    district = Column(Text)
+    district_key = Column(Text, nullable=False)
+    metric_name = Column(Text, nullable=False)
+    metric_value = Column(Numeric(16, 3))
+    secondary_metric_name = Column(Text)
+    secondary_metric_value = Column(Numeric(16, 3))
+    total_households_lakh = Column(Numeric(16, 3))
+    geo_precision = Column(Text, nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class LgdVillage(Base):
+    __tablename__ = "lgd_villages"
+
+    village_code = Column(Text, primary_key=True)
+    village_name = Column(Text, nullable=False)
+    state = Column(Text)
+    district = Column(Text)
+    block = Column(Text)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class School(Base):
+    __tablename__ = "schools"
+
+    id = Column(Integer, primary_key=True)
+    school_id = Column(Text, unique=True, nullable=False)
+    school_name = Column(Text, nullable=False)
+    state = Column(Text, nullable=False)
+    district = Column(Text, nullable=False)
+    block = Column(Text)
+    village = Column(Text)
+    location = Column(Geography(geometry_type="POINT", srid=4326), nullable=False)
+    school_category = Column(Text)
+    management = Column(Text)
+    student_count = Column(Integer)
+    teacher_count = Column(Integer)
+    classroom_count = Column(Integer)
+    has_electricity = Column(Boolean)
+    has_drinking_water = Column(Boolean)
+    has_toilet = Column(Boolean)
+    has_girls_toilet = Column(Boolean)
+    has_ramp = Column(Boolean)
+    has_computer = Column(Boolean)
+    has_internet = Column(Boolean)
+    has_library = Column(Boolean)
+    has_playground = Column(Boolean)

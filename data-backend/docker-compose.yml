@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-civsight_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-civsight_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-civsight}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - civsight_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-civsight_user} -d ${POSTGRES_DB:-civsight}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-civsight_user}:${POSTGRES_PASSWORD:-civsight_pass}@db:5432/${POSTGRES_DB:-civsight}
+      NEARBY_RADIUS_METERS: ${NEARBY_RADIUS_METERS:-1000}
+      AI_CONFIDENCE_THRESHOLD: ${AI_CONFIDENCE_THRESHOLD:-0.65}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  civsight_postgres_data:
