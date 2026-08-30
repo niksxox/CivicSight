@@ -44,7 +44,6 @@ env.bak/
 venv.bak/
 
 # Environment variables / secrets
->>>>>>> origin/main
 .env
 .env.*
 !.env.example
