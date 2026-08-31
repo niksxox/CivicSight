@@ -1,5 +1,5 @@
 ﻿import { state, getProjectById, getDashboardCounts, projectStatusValues } from "./services/mockState.js";
-import { projectsApi, reportsApi, analyticsApi, aiApi } from "./services/index.js";
+import { projectsApi, reportsApi, analyticsApi, aiApi, evidenceApi } from "./services/index.js";
 
 const app = document.querySelector("#app");
 let role = "officer";
@@ -190,9 +190,17 @@ function mapView() {
   return layout(`<div class="page">${pageHeading("Geographic view", "Project map", "Locate active infrastructure work and identify clusters of delivery risk.")}<section class="panel">${mapMarkup()}<div style="display:flex;gap:14px;margin-top:15px;font-size:12px"><span><i style="color:var(--teal)">●</i> On track</span><span><i style="color:var(--amber)">●</i> At risk</span><span><i style="color:var(--red)">●</i> Delayed</span><span><i style="color:#397bb1">●</i> Completed</span></div></section><div class="content-grid"><section class="panel"><div class="panel-heading"><h2>Zone summary</h2></div>${["North district", "East district", "South district", "West district"].map((zone, i) => `<div class="summary-row"><span>${zone}</span><b>${[2, 1, 2, 1][i]} projects</b></div>`).join("")}</section><section class="panel"><div class="panel-heading"><h2>Risk signal</h2></div><p class="muted">West and North districts show the strongest planned-versus-actual variance this month.</p><a class="text-link" href="#/projects/road-zone-a">Review Road Development – Zone A</a></section></div></div>`, "map");
 }
 
-function detailView(id) {
+async function detailView(id) {
   const project = getProject(id) || getProjects()[0];
   if (!project) return layout("<div class='page'><p class='muted'>Project not found.</p></div>", "projects");
+
+  let evidence = [];
+  try {
+    evidence = await evidenceApi.getProjectEvidence(project.id);
+  } catch (err) {
+    console.warn("Evidence backend unavailable:", err);
+  }
+  if (evidence && evidence.length) project.evidence = evidence;
 
   return layout(`<div class="page">${pageHeading("Project details", project.name, `${project.category} / ${project.location}`, `<a class="button secondary" href="#/projects">Back to projects</a>`)}<div class="hero-strip"><div><h2>${["At Risk", "Delayed", "Critical"].includes(project.status) ? "Potential delay detected" : "Delivery is progressing"}</h2><p>Last field update ${project.updated}. Assigned to ${project.assignedOfficer}.</p></div><button class="button amber" data-action="toast">Update status</button></div><div class="stat-grid"><div class="stat"><span class="stat-label">Planned progress</span><div class="stat-value">${project.plannedProgress}%</div></div><div class="stat"><span class="stat-label">Actual progress</span><div class="stat-value">${project.actualProgress}%</div></div><div class="stat"><span class="stat-label">AI confidence</span><div class="stat-value">${project.aiConfidence || 89}%</div></div><div class="stat"><span class="stat-label">Budget</span><div class="stat-value" style="font-size:21px">${project.budget}</div></div></div><div class="content-grid"><section class="panel"><div class="panel-heading"><h2>Evidence timeline</h2><button class="button secondary" data-action="toast">Assign officer</button></div>${activityList()}<div class="panel-heading" style="margin-top:16px"><h2>Latest evidence</h2></div><div class="upload" style="min-height:130px"><strong>${project.evidence?.[0]?.fileName || "Field evidence"}</strong><br>${project.evidence?.[0]?.description || "No evidence uploaded yet."}</div></section><section class="panel"><div class="panel-heading"><h2>Planned vs actual</h2></div><div class="chart">${[55, 62, 67, 74, 80].map((value, i) => `<div class="bar-group"><div class="bar" style="height:${value}%"></div><div class="bar actual" style="height:${[42, 45, 49, 51, 55][i]}%"></div><small>W${i + 1}</small></div>`).join("")}</div><div class="summary"><b>AI review</b><p class="muted" style="margin:4px 0 0;font-size:12px">${project.aiExplanation || "No AI review available."}</p></div><button class="button secondary" data-action="assign" data-project-id="${project.id}">Assign Officer</button></section></div></div>`, "projects");
 }
@@ -217,29 +225,35 @@ function analyticsView() {
   return layout(`<div class="page">${pageHeading("Performance", "Analytics", "Delivery signals across the current project portfolio.")}<div class="content-grid"><section class="panel"><div class="panel-heading"><h2>Portfolio progress</h2><span class="muted">Apr - Aug 2026</span></div><div class="chart">${chartData.length ? chartData.map((item) => `<div class="bar-group"><div class="bar" style="height:${item.planned}%"></div><div class="bar actual" style="height:${item.actual}%"></div><small>${item.label}</small></div>`).join("") : "<p class='muted'>No analytics data available.</p>"}</div></section><section class="panel"><div class="panel-heading"><h2>Signal summary</h2></div>${[["Evidence reviewed", `${analytics.reportVolume || 0}`], ["Average variance", `${Math.round(getProjects().reduce((sum, p) => sum + (p.deviation || 0), 0) / getProjects().length) || 0} pts`], ["Verified completions", `${analytics.completionRate || 0}%`]].map(([label, value]) => `<div class="summary-row"><span>${label}</span><b>${value}</b></div>`).join("")}</section></div></div>`, "analytics");
 }
 
-function render() {
+async function render() {
   const hash = location.hash || "#/dashboard";
-  let view = dashboardView();
-
-  if (role === "citizen" && hash === "#/dashboard") {
-    location.hash = "#/report";
-    return;
+  app.innerHTML = `<div class="page"><p class="muted">Loading…</p></div>`;
+  let view;
+  try {
+    view = await viewForHash(hash);
+  } catch (err) {
+    view = layout(`<div class="page"><p class="form-error">Could not load data: ${err.message}</p></div>`, "");
   }
-
-  if (hash === "#/report") view = reportView();
-  else if (hash === "#/submissions") view = confirmationView();
-  else if (hash === "#/submission-result") view = resultView();
-  else if (hash === "#/projects") view = projectsView();
-  else if (hash === "#/map") view = mapView();
-  else if (hash === "#/analytics") view = analyticsView();
-  else if (hash.startsWith("#/projects/")) view = detailView(hash.split("/")[2]);
-  else view = dashboardView();
-
   app.innerHTML = view;
   bindGlobalEvents();
 
   if (hash === "#/dashboard") bindOfficerEvents();
   if (hash === "#/report") bindCitizenEvents();
+}
+
+async function viewForHash(hash) {
+  if (role === "citizen" && hash === "#/dashboard") {
+    location.hash = "#/report";
+    return;
+  }
+  if (hash === "#/report") return reportView();
+  if (hash === "#/submissions") return confirmationView();
+  if (hash === "#/submission-result") return resultView();
+  if (hash === "#/projects") return projectsView();
+  if (hash === "#/map") return mapView();
+  if (hash === "#/analytics") return analyticsView();
+  if (hash.startsWith("#/projects/")) return await detailView(hash.split("/")[2]);
+  return dashboardView();
 }
 
 function bindGlobalEvents() {
@@ -482,4 +496,20 @@ function bindCitizenEvents() {
 }
 
 window.addEventListener("hashchange", render);
-render();
+
+async function bootstrap() {
+  app.innerHTML = `<div class="page"><p class="muted">Loading CivicSight…</p></div>`;
+  try {
+    await projectsApi.loadProjects();
+  } catch (err) {
+    console.warn("Projects backend unreachable, using sample data:", err);
+  }
+  try {
+    await analyticsApi.loadAnalytics();
+  } catch (err) {
+    console.warn("Analytics backend unavailable:", err);
+  }
+  await render();
+}
+
+bootstrap();

@@ -1,6 +1,26 @@
 import { state, getProjectById } from "./mockState.js";
+import { apiClient } from "./api.js";
+
+// Map a real project_history row -> frontend evidence/activity item.
+function mapHistoryRow(row) {
+  const when = row.recorded_at || row.submitted_at;
+  return {
+    id: `hist-${when || Math.random()}`,
+    projectId: row.project_id,
+    projectName: row.project_name || "",
+    type: "record",
+    fileName: row.note || "Status update",
+    mediaUrl: "",
+    location: "",
+    description: row.note || "",
+    reportedProgress: row.progress,
+    submittedAt: when,
+    verificationStatus: row.status || "Recorded",
+  };
+}
 
 export const evidenceApi = {
+  // No citizen-evidence create endpoint exists in the data backend — kept mock.
   async uploadEvidence(data) {
     const project = getProjectById(state.projects, data.projectId || state.projects[0].id);
     if (!project) throw new Error("Project not found");
@@ -30,8 +50,11 @@ export const evidenceApi = {
     return projectWithEvidence.evidence.find((item) => item.id === id) || null;
   },
 
+  // Real evidence timeline from the data backend's project history.
   async getProjectEvidence(projectId) {
-    const project = getProjectById(state.projects, projectId);
-    return project ? [...project.evidence] : [];
+    const res = await apiClient.request({ method: "GET", endpoint: `/projects/${projectId}/history` });
+    if (!res.ok) throw new Error(`Evidence API failed (${res.status})`);
+    const rows = Array.isArray(res.data) ? res.data : [];
+    return rows.map(mapHistoryRow);
   },
 };
