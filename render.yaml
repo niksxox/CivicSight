@@ -1,5 +1,12 @@
 # CivicSight Render Blueprint
-# Secrets are intentionally NOT committed. Render will prompt for sync:false values.
+# Secrets are intentionally NOT committed. Render prompts for sync:false values.
+#
+# Resource names:
+#   frontend: civicsight-frontend
+#   node: node-api
+#   data: data-backend
+#   ai: ai-service
+#   postgres: civicsight-postgres
 
 services:
   - type: web
@@ -12,6 +19,8 @@ services:
     healthCheckPath: /
     autoDeploy: true
     envVars:
+      - key: PORT
+        value: "10000"
       - key: NODE_API_HOST
         fromService:
           name: node-api
@@ -41,7 +50,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: "10000"
+        value: "5000"
       - key: HOST
         value: "0.0.0.0"
       - key: MONGO_URI
@@ -63,10 +72,9 @@ services:
     dockerContext: ./data-backend
     healthCheckPath: /health
     autoDeploy: true
-    preDeployCommand: python scripts/init_db.py
     envVars:
       - key: PORT
-        value: "10000"
+        value: "8000"
       - key: HOST
         value: "0.0.0.0"
       - key: ENVIRONMENT
@@ -96,7 +104,7 @@ services:
     autoDeploy: true
     envVars:
       - key: PORT
-        value: "10000"
+        value: "8001"
       - key: HOST
         value: "0.0.0.0"
       - key: ENVIRONMENT
@@ -109,7 +117,7 @@ services:
           type: web
           envVarKey: RENDER_EXTERNAL_URL
 
-# Render-managed Postgres. The schema enables PostGIS during the data-backend pre-deploy.
+# Render-managed Postgres. data-backend applies db/schema.sql on startup.
 databases:
   - name: civicsight-postgres
     plan: free
