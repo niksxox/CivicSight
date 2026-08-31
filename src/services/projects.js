@@ -1,5 +1,6 @@
 import { state, getProjectById, normalizeStatus, refreshProjectDerivedFields, projectStatusValues } from "./mockState.js";
 import { apiClient } from "./api.js";
+import { nodeClient } from "./nodeApi.js";
 
 // Backend current_status enum -> frontend label used by badges/summary.
 const STATUS_MAP = {
@@ -80,7 +81,7 @@ export const projectsApi = {
   // Hydrate the in-memory store from the real backend. Falls back to the seed
   // data already in state.projects if the backend is unreachable.
   async loadProjects() {
-    const res = await apiClient.request({ method: "GET", endpoint: "/projects?limit=2000" });
+    const res = await apiClient.request({ method: "GET", endpoint: "/projects?limit=200" });
     if (!res.ok) throw new Error(`Projects API failed (${res.status})`);
     const payload = res.data || {};
     const items = Array.isArray(payload.items) ? payload.items : Array.isArray(payload) ? payload : [];
@@ -97,44 +98,54 @@ export const projectsApi = {
     return getProjectById(state.projects, id);
   },
 
-  // --- No backend endpoint exists for these writes (data backend is read-only
-  // past ingestion). Kept as local mock behaviour for the prototype demo. ---
+  // --- These mutations now call the real Node.js backend ---
   async updateProjectStatus(id, status) {
+    const res = await nodeClient.request({
+      method: "PATCH",
+      endpoint: `/projects/${id}/status`,
+      data: { status },
+    });
+    if (!res.ok) throw new Error(res.data?.message || `Status update failed (${res.status})`);
+    // Update local state with server response
     const project = getProjectById(state.projects, id);
-    if (!project) throw new Error("Project not found");
-    project.status = normalizeStatus(status);
-    refreshProjectDerivedFields(project);
-    return project;
+    if (project) {
+      project.status = normalizeStatus(res.data.status || status);
+      refreshProjectDerivedFields(project);
+    }
+    return res.data;
   },
 
-  async assignOfficer(id, officerId) {
-    const project = getProjectById(state.projects, id);
-    if (!project) throw new Error("Project not found");
-    project.assignedOfficer = officerId;
-    project.updated = "Just now";
-    project.activity.unshift({
-      id: `act-${Date.now()}`,
-      title: "Officer assigned",
-      time: "Just now",
-      detail: `${officerId} assigned to project.`,
+  async assignOfficer(id, officerName) {
+    // First we need to find/create the user - for now we use the project patch endpoint
+    const res = await nodeClient.request({
+      method: "POST",
+      endpoint: `/projects/${id}/assign`,
+      data: { name: officerName },
     });
-    return project;
+    if (!res.ok) throw new Error(res.data?.message || `Assignment failed (${res.status})`);
+    const project = getProjectById(state.projects, id);
+    if (project) {
+      project.assignedOfficer = officerName;
+      project.updated = "Just now";
+    }
+    return res.data;
   },
 
   async verifyCompletion(id) {
-    const project = getProjectById(state.projects, id);
-    if (!project) throw new Error("Project not found");
-    project.status = "Completed";
-    project.actualProgress = 100;
-    project.deviation = project.actualProgress - project.plannedProgress;
-    refreshProjectDerivedFields(project);
-    project.activity.unshift({
-      id: `act-${Date.now()}`,
-      title: "Completion verified",
-      time: "Just now",
-      detail: "Project verification completed by the government team.",
+    const res = await nodeClient.request({
+      method: "PATCH",
+      endpoint: `/projects/${id}/status`,
+      data: { status: "VERIFIED" },
     });
-    return project;
+    if (!res.ok) throw new Error(res.data?.message || `Verification failed (${res.status})`);
+    const project = getProjectById(state.projects, id);
+    if (project) {
+      project.status = "Completed";
+      project.actualProgress = 100;
+      project.deviation = project.actualProgress - project.plannedProgress;
+      refreshProjectDerivedFields(project);
+    }
+    return res.data;
   },
 
   async listStatuses() {

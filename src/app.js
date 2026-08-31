@@ -1,5 +1,5 @@
 ﻿import { state, getProjectById, getDashboardCounts, projectStatusValues } from "./services/mockState.js";
-import { projectsApi, reportsApi, analyticsApi, aiApi, evidenceApi } from "./services/index.js";
+import { projectsApi, reportsApi, analyticsApi, aiApi, evidenceApi, authApi } from "./services/index.js";
 
 const app = document.querySelector("#app");
 let role = "officer";
@@ -499,15 +499,25 @@ window.addEventListener("hashchange", render);
 
 async function bootstrap() {
   app.innerHTML = `<div class="page"><p class="muted">Loading CivicSight…</p></div>`;
+  let backendError = null;
   try {
     await projectsApi.loadProjects();
   } catch (err) {
-    console.warn("Projects backend unreachable, using sample data:", err);
+    backendError = err;
+    console.error("Projects backend unreachable:", err);
   }
   try {
     await analyticsApi.loadAnalytics();
   } catch (err) {
-    console.warn("Analytics backend unavailable:", err);
+    console.error("Analytics backend unavailable:", err);
+  }
+  if (backendError) {
+    app.innerHTML = layout(`<div class="page"><div class="form-error" style="padding:20px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;margin:20px 0;">
+      <strong>Unable to connect to the data backend.</strong>
+      <p style="margin:8px 0 0;color:#666">${backendError.message || "Server unreachable"}</p>
+      <p style="margin:8px 0 0;font-size:12px;color:#888">Please ensure the backend service is running and accessible.</p>
+    </div></div>`, "");
+    return;
   }
   await render();
 }

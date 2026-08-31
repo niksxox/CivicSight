@@ -1,7 +1,10 @@
 export { appConfig, getApiBaseUrl, getApiMode } from "../config.js";
 export { apiClient, withLoading } from "./api.js";
+export { nodeClient } from "./nodeApi.js";
+export { authApi } from "./auth.js";
 export { projectsApi } from "./projects.js";
 export { reportsApi } from "./reports.js";
 export { evidenceApi } from "./evidence.js";
 export { analyticsApi } from "./analytics.js";
 export { aiApi } from "./ai.js";
+export { aiApiService } from "./aiService.js";

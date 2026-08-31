@@ -16,11 +16,13 @@ Do not put AI/business logic in this file.
 
 from __future__ import annotations
 
+import os
+
 import uvicorn
 
 
-HOST = "127.0.0.1"
-PORT = 8000
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", "8001"))
 
 
 def main() -> None:
@@ -30,7 +32,7 @@ def main() -> None:
         "app.main:app",
         host=HOST,
         port=PORT,
-        reload=True,
+        reload=os.getenv("ENVIRONMENT") == "development",
     )
 
 

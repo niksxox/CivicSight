@@ -17,22 +17,36 @@ export const apiClient = {
       };
     }
 
-    const response = await fetch(finalUrl, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...headers,
-      },
-      body: data ? JSON.stringify(data) : null,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), appConfig.DEFAULT_TIMEOUT);
 
-    const payload = await response.json().catch(() => null);
+    try {
+      const response = await fetch(finalUrl, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: data ? JSON.stringify(data) : null,
+        signal: controller.signal,
+      });
 
-    return {
-      ok: response.ok,
-      status: response.status,
-      data: payload,
-    };
+      clearTimeout(timeoutId);
+
+      const payload = await response.json().catch(() => null);
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        data: payload,
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === "AbortError") {
+        return { ok: false, status: 408, data: { message: "Request timed out" } };
+      }
+      return { ok: false, status: 0, data: { message: error.message } };
+    }
   },
 };
 

@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential gdal-bin libgdal-dev \
+    && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -14,5 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Production: no auto-ETL on startup. Run migrations/ETL separately.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+ENV ENVIRONMENT=production
+ENV PORT=8001
+ENV HOST=0.0.0.0
+
+EXPOSE 8001
+
+CMD ["python", "run.py"]

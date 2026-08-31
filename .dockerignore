@@ -1,0 +1,17 @@
+.env
+.env.local
+node_modules
+npm-debug.log
+.git
+.gitignore
+.vscode
+.kilo
+*.md
+!README.md
+__pycache__
+*.pyc
+.pytest_cache
+venv
+.venv
+data/raw/**
+!data/raw/.gitkeep
