@@ -1,0 +1,111 @@
+# CivicSight Render Blueprint
+# Secrets are intentionally NOT committed. Render will prompt for sync:false values.
+
+services:
+  - type: web
+    name: civicsight-frontend
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile.frontend
+    dockerContext: .
+    healthCheckPath: /
+    autoDeploy: true
+
+  - type: web
+    name: node-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile.node
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        fromService:
+          name: civicsight-frontend
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: data-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./data-backend/Dockerfile
+    dockerContext: ./data-backend
+    healthCheckPath: /health
+    autoDeploy: true
+    preDeployCommand: python scripts/init_db.py
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: civicsight-postgres
+          property: connectionString
+      - key: CORS_ORIGIN
+        fromService:
+          name: civicsight-frontend
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: NEARBY_RADIUS_METERS
+        value: "1000"
+      - key: AI_CONFIDENCE_THRESHOLD
+        value: "0.65"
+
+  - type: web
+    name: ai-service
+    runtime: docker
+    plan: 1c-2g
+    region: singapore
+    dockerfilePath: ./Dockerfile.ai
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: ENVIRONMENT
+        value: production
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        fromService:
+          name: civicsight-frontend
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: civicsight-frontend-proxy-check
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: "echo proxy-check"
+    startCommand: "node -e \"require('http').createServer((req,res)=>{res.writeHead(200);res.end('ok')}).listen(process.env.PORT||10000,'0.0.0.0')\""
+    autoDeploy: false
+
+# Render-managed Postgres. PostGIS is enabled by the project's schema.sql
+# during the data-backend pre-deploy command.
+databases:
+  - name: civicsight-postgres
+    plan: free
+    region: singapore
+    postgresMajorVersion: "16"
