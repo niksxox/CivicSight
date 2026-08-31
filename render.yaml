@@ -93,17 +93,7 @@ services:
           type: web
           envVarKey: RENDER_EXTERNAL_URL
 
-  - type: web
-    name: civicsight-frontend-proxy-check
-    runtime: node
-    plan: free
-    region: singapore
-    buildCommand: "echo proxy-check"
-    startCommand: "node -e \"require('http').createServer((req,res)=>{res.writeHead(200);res.end('ok')}).listen(process.env.PORT||10000,'0.0.0.0')\""
-    autoDeploy: false
-
-# Render-managed Postgres. PostGIS is enabled by the project's schema.sql
-# during the data-backend pre-deploy command.
+# Render-managed Postgres. The schema enables PostGIS during the data-backend pre-deploy.
 databases:
   - name: civicsight-postgres
     plan: free
