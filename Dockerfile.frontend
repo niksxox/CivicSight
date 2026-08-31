@@ -1,8 +1,6 @@
 FROM nginx:1.27-alpine
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.render.conf.template /etc/nginx/templates/default.conf.template
 COPY . /usr/share/nginx/html
 
 EXPOSE 10000
-
-CMD ["/bin/sh", "-c", "sed -i \"s|listen 80;|listen 10000;|g; s|node-api:5000|${NODE_API_HOST}|g; s|data-backend:8000|${DATA_API_HOST}|g; s|ai-service:8001|${AI_API_HOST}|g\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
