@@ -14,5 +14,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Production: no auto-ETL on startup. Run migrations/ETL separately.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+ENV HOST=0.0.0.0
+ENV PORT=8000
+ENV ENVIRONMENT=production
+
+EXPOSE 8000
+
+# Do not run destructive ETL/reset operations during application startup.
+CMD ["python", "run.py"]
