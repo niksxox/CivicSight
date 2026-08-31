@@ -11,6 +11,22 @@ services:
     dockerContext: .
     healthCheckPath: /
     autoDeploy: true
+    envVars:
+      - key: NODE_API_HOST
+        fromService:
+          name: node-api
+          type: web
+          property: hostport
+      - key: DATA_API_HOST
+        fromService:
+          name: data-backend
+          type: web
+          property: hostport
+      - key: AI_API_HOST
+        fromService:
+          name: ai-service
+          type: web
+          property: hostport
 
   - type: web
     name: node-api
