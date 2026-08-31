@@ -8,24 +8,34 @@ const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const authRoutes = require("./routes/authRoutes");
 const projectRoutes = require("./routes/projectRoutes");
 
-if (process.env.MONGO_URI) {
-  connectDB();
-} else {
+const app = express();
+const PORT = Number(process.env.PORT) || 5000;
+const HOST = process.env.HOST || "0.0.0.0";
+const isProduction = process.env.NODE_ENV === "production";
+
+if (!process.env.MONGO_URI) {
+  if (isProduction) {
+    console.error("MONGO_URI is required in production");
+    process.exit(1);
+  }
   console.warn("MONGO_URI not set — starting without MongoDB connection");
+} else {
+  connectDB();
 }
 
-const app = express();
-
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "10mb" }));
-app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+app.use(morgan(isProduction ? "combined" : "dev"));
 
 const allowedOrigins = (process.env.CORS_ORIGIN || "")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
+
 app.use(
   cors({
-    origin: allowedOrigins.length ? allowedOrigins : true,
+    origin: allowedOrigins.length ? allowedOrigins : isProduction ? false : true,
     credentials: true,
   })
 );
@@ -44,6 +54,17 @@ app.use("/api/projects", projectRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
-const HOST = process.env.HOST || "0.0.0.0";
-app.listen(PORT, HOST, () => console.log(`Server running on http://${HOST}:${PORT}`));
+const server = app.listen(PORT, HOST, () =>
+  console.log(`Server running on ${HOST}:${PORT}`)
+);
+
+const shutdown = (signal) => {
+  console.log(`${signal} received — shutting down`);
+  server.close(() => {
+    const mongoose = require("mongoose");
+    mongoose.connection.close(false).finally(() => process.exit(0));
+  });
+};
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
