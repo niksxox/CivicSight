@@ -752,10 +752,68 @@ async def verify_resolution(
     )
 
 
-# Public exports
+# Abandonment & Recommendation Models and Endpoints
 
+
+class AbandonmentDetectionRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=5000)
+    months_since_inspection: float = Field(0.0, ge=0.0)
+    citizen_report_count: int = Field(1, ge=0)
+    visual_tags: list[str] | None = None
+
+
+class ActionRecommendationRequest(BaseModel):
+    facility_type: str = Field(..., min_length=1)
+    facility_name: str = Field(..., min_length=1)
+    district: str = Field(..., min_length=1)
+    abandonment_score: float = Field(..., ge=0.0, le=100.0)
+    population_catchment: int = Field(..., ge=0)
+    distance_to_alternative_km: float = Field(2.0, ge=0.0)
+    has_structural_integrity: bool = True
+
+
+@router.post(
+    "/detect-abandonment",
+    summary="Detect infrastructure abandonment or underutilization",
+)
+async def detect_abandonment_endpoint(request: AbandonmentDetectionRequest) -> dict[str, Any]:
+    from app.services.abandonment_detector import detect_abandonment
+
+    try:
+        return detect_abandonment(
+            text=request.text,
+            months_since_inspection=request.months_since_inspection,
+            citizen_report_count=request.citizen_report_count,
+            visual_tags=request.visual_tags,
+        )
+    except Exception as exc:
+        _raise_service_error("abandonment detection", exc)
+
+
+@router.post(
+    "/recommend-action",
+    summary="Generate strategic civic recommendation (Repair, Repurpose, or Develop)",
+)
+async def recommend_action_endpoint(request: ActionRecommendationRequest) -> dict[str, Any]:
+    from app.services.recommendation_engine import generate_recommendation
+
+    try:
+        return generate_recommendation(
+            facility_type=request.facility_type,
+            facility_name=request.facility_name,
+            district=request.district,
+            abandonment_score=request.abandonment_score,
+            population_catchment=request.population_catchment,
+            distance_to_alternative_km=request.distance_to_alternative_km,
+            has_structural_integrity=request.has_structural_integrity,
+        )
+    except Exception as exc:
+        _raise_service_error("action recommendation", exc)
+
+
+# Public exports
 
 
 __all__ = [
     "router",
-]
+]

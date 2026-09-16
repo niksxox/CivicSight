@@ -64,7 +64,8 @@ service-account.json
 # app/models/ contains SOURCE CODE and MUST be committed.
 # ============================================================
 
-/models/
+# /models/ contains Node.js Mongoose schemas
+!/models/*.js
 /model/
 /checkpoints/
 /checkpoint/
@@ -98,6 +99,7 @@ uploaded_files/
 temp/
 tmp/
 data/
+!data-backend/data/raw/
 outputs/
 results/
 

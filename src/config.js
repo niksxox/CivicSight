@@ -5,9 +5,9 @@ const injected = (typeof window !== "undefined" && window.CIVICSIGHT_CONFIG) || 
 
 export const appConfig = {
   // In production (served via nginx), use relative paths. In development, use full URLs.
-  API_BASE_URL: injected.API_BASE_URL || "/data-api",
-  NODE_API_URL: injected.NODE_API_URL || "/api",
-  AI_API_URL: injected.AI_API_URL || "/ai-api",
+  API_BASE_URL: injected.API_BASE_URL || "http://localhost:8000",
+  NODE_API_URL: injected.NODE_API_URL || "http://localhost:5000/api",
+  AI_API_URL: injected.AI_API_URL || "http://localhost:8001",
   API_MODE: injected.API_MODE || "live",
   DEFAULT_TIMEOUT: 12000,
 };

@@ -1,0 +1,7 @@
+id,type,urgency,priority_score,target_facility_name,district,affected_population,estimated_cost,timeline_days,roi_score,rationale,status
+rec-rep-01,REPAIR,CRITICAL,96,"Ward 4 Solar Drinking Water Tank",Kurnool,8400,"Rs 2.4 Lakhs",7,9.8,"Submersible motor failure cut off 8400 vulnerable residents from daily water.",APPROVED_FOR_TENDER
+rec-rep-02,REPAIR,HIGH,91,"Krishna Riverfront Public Toilet Complex",Vijayawada,11000,"Rs 1.8 Lakhs",10,9.4,"Dense pedestrian transit corridor plagued by open defecation due to locked plumbing.",PLANNED
+rec-pur-01,REPURPOSE,HIGH,93,"Zilla Parishad Primary School (Pendurthi)",Visakhapatnam,14200,"Rs 8.5 Lakhs",45,9.6,"Sound 6-room building abandoned for 3 years. Convert into Primary Health Clinic & Anganwadi.",FEASIBILITY_APPROVED
+rec-pur-02,REPURPOSE,HIGH,89,"Autonagar Transit Rest House & Depot",Vijayawada,8500,"Rs 14.0 Lakhs",60,9.2,"Vacant bus depot site converted to Green EV Commercial Charging & Logistics Micro-Depot.",PLANNED
+rec-dev-01,NEWLY_DEVELOP,CRITICAL,97,"Guntur West Slum Catchment - Sanitation Hub",Guntur,13800,"Rs 18.0 Lakhs",90,9.9,"Zero functional public toilets within 1.8km radius for 13800 residents.",PROPOSAL_READY
+rec-dev-02,NEWLY_DEVELOP,HIGH,92,"Tirupati Outer Ring Habitations Water ATM",Tirupati,7500,"Rs 12.5 Lakhs",45,9.3,"High groundwater salinity and zero piped JJM taps. Construct 5000 LPH RO Kiosk.",PLANNED

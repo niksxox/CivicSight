@@ -7,6 +7,9 @@ const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const authRoutes = require("./routes/authRoutes");
 const projectRoutes = require("./routes/projectRoutes");
+const facilityRoutes = require("./routes/facilityRoutes");
+const civicReportRoutes = require("./routes/civicReportRoutes");
+const recommendationRoutes = require("./routes/recommendationRoutes");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -50,6 +53,9 @@ app.get("/api/health", (req, res) =>
 
 app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
+app.use("/api/facilities", facilityRoutes);
+app.use("/api/civic-reports", civicReportRoutes);
+app.use("/api/recommendations", recommendationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

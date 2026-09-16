@@ -8,3 +8,6 @@ export { evidenceApi } from "./evidence.js";
 export { analyticsApi } from "./analytics.js";
 export { aiApi } from "./ai.js";
 export { aiApiService } from "./aiService.js";
+export { facilitiesApi } from "./facilitiesApi.js";
+export { recommendationsApi } from "./recommendationsApi.js";
+export { civicReportsApi } from "./civicReportsApi.js";

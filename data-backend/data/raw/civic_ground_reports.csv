@@ -1,0 +1,7 @@
+id,facility_name,issue_type,district,latitude,longitude,description,severity,reported_by,status
+civ-rep-101,"Ward 4 Solar Drinking Water Tank",DEFUNCT_WATER,Kurnool,15.8341,78.0421,"Solar drinking water pump broke down 4 months ago. Wires snapped and storage tank is bone dry.",CRITICAL,"K. Venkatesh",CONFIRMED_ISSUE
+civ-rep-102,"Zilla Parishad Primary School (Pendurthi)",ABANDONED_SCHOOL,Visakhapatnam,17.8284,83.1985,"Primary school building abandoned for 3 years following cluster school consolidation. Overgrown weeds.",HIGH,"S. Anuradha",EVALUATION_PENDING
+civ-rep-103,"Krishna Riverfront Public Toilet Complex",LOCKED_TOILET,Vijayawada,16.5123,80.6214,"Heavy iron chain and rusted padlock on the gate since January. High pedestrian transit area.",CRITICAL,"M. Ramesh",INTERVENTION_RECOMMENDED
+civ-rep-104,"Old Market Complex Public Restrooms",LOCKED_TOILET,Guntur,16.3045,80.4418,"Restrooms totally locked up and sewage backflow creating foul odor near food market.",HIGH,"G. Lakshmi",CONFIRMED_ISSUE
+civ-rep-105,"Renigunta Road Municipal Toilet Facility",LOCKED_TOILET,Tirupati,13.6394,79.4421,"Built under public funds in 2016, locked for 9 months with weeds blocking entryway.",HIGH,"T. Srinivasan",EVALUATION_PENDING
+civ-rep-106,"Nallapadu JJM Community Solar Water Tap",DEFUNCT_WATER,Guntur,16.2845,80.4087,"Solar inverter failed during peak summer. Rural residents carrying water from 2km away.",HIGH,"B. Ratnam",INTERVENTION_RECOMMENDED

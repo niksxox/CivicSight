@@ -1,3 +1,11 @@
+import {
+  seedFacilities,
+  seedCivicReports,
+  seedRecommendations,
+  seedResolutionPairs,
+  districtDemographics,
+} from "./civicIntelligenceData.js";
+
 const seedProjects = [
   {
     id: "road-zone-a",
@@ -279,11 +287,17 @@ const seedReports = [
 export const state = {
   projects: cloneProjects(seedProjects),
   reports: cloneReports(seedReports),
+  facilities: seedFacilities.map((f) => ({ ...f })),
+  civicReports: seedCivicReports.map((r) => ({ ...r })),
+  recommendations: seedRecommendations.map((r) => ({ ...r })),
+  resolutions: seedResolutionPairs.map((r) => ({ ...r })),
+  demographics: [...districtDemographics],
   activityFeed: [
-    { text: "Citizen report escalated for Drainage Network - Ward 12", time: "5 mins ago" },
-    { text: "AI analysis updated for Road Development - Zone A", time: "18 min ago" },
-    { text: "Officer assignment changed for River Road Bridge", time: "1 hr ago" },
-    { text: "Completion verification requested for Sector 4", time: "2 hrs ago" },
+    { text: "AI generated new REPURPOSE recommendation for ZP School Pendurthi", time: "2 mins ago" },
+    { text: "Critical water outage report submitted in Kurnool Ward 4", time: "14 mins ago" },
+    { text: "Locked toilet report verified by field officer in Vijayawada", time: "1 hr ago" },
+    { text: "Resolution verified for Tirupati Renigunta Sanitation Block #2", time: "3 hrs ago" },
+    { text: "Citizen report escalated for Drainage Network - Ward 12", time: "4 hrs ago" },
   ],
 };
 
@@ -365,3 +379,54 @@ export const getProjectMaps = (projects) => projects.map((project) => ({
   ...project,
   markerColor: project.status === "Delayed" ? "red" : project.status === "Critical" ? "red" : project.status === "At Risk" ? "amber" : project.status === "Completed" ? "blue" : "green",
 }));
+
+export const getFacilitiesSummary = () => {
+  const total = state.facilities.length;
+  const operational = state.facilities.filter((f) => f.officialStatus === "OPERATIONAL").length;
+  const underutilized = state.facilities.filter((f) => f.officialStatus === "UNDERUTILIZED").length;
+  const abandoned = state.facilities.filter((f) => f.officialStatus === "ABANDONED").length;
+  const defunct = state.facilities.filter((f) => f.officialStatus === "DEFUNCT").length;
+  const atRiskTotal = underutilized + abandoned + defunct;
+  return { total, operational, underutilized, abandoned, defunct, atRiskTotal };
+};
+
+export const getRecommendationsSummary = () => {
+  const total = state.recommendations.length;
+  const repair = state.recommendations.filter((r) => r.type === "REPAIR").length;
+  const repurpose = state.recommendations.filter((r) => r.type === "REPURPOSE").length;
+  const newlyDevelop = state.recommendations.filter((r) => r.type === "NEWLY_DEVELOP").length;
+  const totalPopulation = state.recommendations.reduce((sum, r) => sum + (r.affectedPopulation || 0), 0);
+  return { total, repair, repurpose, newlyDevelop, totalPopulation };
+};
+
+export const addCivicReport = (report) => {
+  const newReport = {
+    id: `civ-rep-${Date.now()}`,
+    submittedAt: new Date().toISOString(),
+    status: "CONFIRMED_ISSUE",
+    aiConfidence: 91,
+    aiTags: ["GROUND_VERIFIED", report.issueType || "DEFUNCT_FACILITY"],
+    mediaUrl: makeSvgDataUri(report.issueTitle || "Citizen Report", "#b03a2e", "#641e16"),
+    ...report,
+  };
+  state.civicReports.unshift(newReport);
+
+  if (report.facilityId) {
+    const facility = state.facilities.find((f) => f.id === report.facilityId);
+    if (facility) {
+      facility.citizenReportCount = (facility.citizenReportCount || 0) + 1;
+      facility.abandonmentScore = Math.min(100, (facility.abandonmentScore || 50) + 6);
+      if (facility.officialStatus === "OPERATIONAL") {
+        facility.officialStatus = "UNDERUTILIZED";
+      }
+    }
+  }
+
+  state.activityFeed.unshift({
+    text: `New citizen ground report filed: "${report.issueTitle || report.description?.slice(0, 35)}"`,
+    time: "Just now",
+  });
+
+  return newReport;
+};
+

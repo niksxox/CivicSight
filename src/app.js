@@ -1,19 +1,62 @@
-﻿import { state, getProjectById, getDashboardCounts, projectStatusValues } from "./services/mockState.js";
-import { projectsApi, reportsApi, analyticsApi, aiApi, evidenceApi, authApi } from "./services/index.js";
+import {
+  state,
+  getProjectById,
+  getDashboardCounts,
+  getFacilitiesSummary,
+  getRecommendationsSummary,
+  projectStatusValues,
+  addCivicReport,
+  makeSvgDataUri,
+} from "./services/mockState.js";
+import {
+  projectsApi,
+  reportsApi,
+  analyticsApi,
+  aiApi,
+  evidenceApi,
+  facilitiesApi,
+  recommendationsApi,
+  civicReportsApi,
+} from "./services/index.js";
 
 const app = document.querySelector("#app");
 let role = "officer";
 let latestSubmission = state.reports[0] || null;
 let latestAnalysis = null;
+let activeMapInstance = null;
+let currentBasemap = "streets"; // "streets" | "satellite"
+let activeFilter = "all";
+let activeRecFilter = "all";
 
-const icons = { dashboard: "[]", projects: "<>", map: "()", capture: "+", analytics: "%", evidence: "#", verify: "✓" };
+const icons = {
+  dashboard: "🎛️",
+  projects: "📋",
+  map: "🗺️",
+  capture: "📸",
+  analytics: "📊",
+  evidence: "📁",
+  verify: "✅",
+  abandonment: "🏚️",
+  recommendations: "💡",
+};
+
 const officerNav = [
-  ["Dashboard", "dashboard", "#/dashboard"],
-  ["Projects", "projects", "#/projects"],
-  ["Project map", "map", "#/map"],
-  ["Analytics", "analytics", "#/analytics"],
+  ["Command center", "dashboard", "#/dashboard"],
+  ["GIS satellite map", "map", "#/map"],
+  ["Abandonment detector", "abandonment", "#/abandonment"],
+  ["AI recommendations", "recommendations", "#/recommendations"],
+  ["Resolution studio", "verify", "#/resolutions"],
+  ["Capital projects", "projects", "#/projects"],
+  ["Demographics & analytics", "analytics", "#/analytics"],
 ];
-const citizenNav = [["Report evidence", "capture", "#/report"], ["My submissions", "evidence", "#/submissions"]];
+
+const citizenNav = [
+  ["Report civic issue", "capture", "#/report"],
+  ["Civic map & alerts", "map", "#/map"],
+  ["AI recommendations", "recommendations", "#/recommendations"],
+  ["Verified resolutions", "verify", "#/resolutions"],
+  ["My submissions", "evidence", "#/submissions"],
+];
 
 const getProjects = () => state.projects;
 const getProject = (id) => getProjectById(state.projects, id);
@@ -24,102 +67,19 @@ function pageHeading(eyebrow, title, description, action = "") {
 }
 
 function badge(status) {
-  const kind = ["On Track", "Completed"].includes(status) ? "green" : ["At Risk", "Critical"].includes(status) ? "red" : "amber";
+  const kind = ["On Track", "Completed", "OPERATIONAL"].includes(status)
+    ? "green"
+    : ["At Risk", "Critical", "ABANDONED", "DEFUNCT"].includes(status)
+    ? "red"
+    : "amber";
   return `<span class="badge ${kind}">${status}</span>`;
 }
 
-function showDialog({ title, message = "", defaultValue = "", confirmText = "Confirm", inputLabel = "Value", inputType = "text" }) {
-  return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "dialog-overlay";
-    overlay.innerHTML = `
-      <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
-        <div class="dialog-header">
-          <h3 id="dialog-title">${title}</h3>
-        </div>
-        <div class="dialog-body">
-          ${message ? `<p>${message}</p>` : ""}
-          ${inputType === "text" ? `<label class="dialog-label"><span>${inputLabel}</span><input type="text" value="${defaultValue}" /></label>` : ""}
-        </div>
-        <div class="dialog-actions">
-          <button type="button" class="button secondary" data-dialog-cancel>Cancel</button>
-          <button type="button" class="button" data-dialog-confirm>${confirmText}</button>
-        </div>
-      </div>
-    `;
-
-    const input = overlay.querySelector("input");
-    const confirmButton = overlay.querySelector("[data-dialog-confirm]");
-    const cancelButton = overlay.querySelector("[data-dialog-cancel]");
-
-    const close = () => overlay.remove();
-
-    overlay.addEventListener("click", (event) => {
-      if (event.target === overlay) {
-        close();
-        resolve(null);
-      }
-    });
-
-    cancelButton.addEventListener("click", () => {
-      close();
-      resolve(null);
-    });
-
-    confirmButton.addEventListener("click", () => {
-      const value = input ? input.value.trim() : "";
-      close();
-      resolve(value || null);
-    });
-
-    document.body.appendChild(overlay);
-    if (input) input.focus();
-  });
-}
-
-function showConfirm({ title, message, confirmText = "Confirm" }) {
-  return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "dialog-overlay";
-    overlay.innerHTML = `
-      <div class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-        <div class="dialog-header">
-          <h3 id="confirm-title">${title}</h3>
-        </div>
-        <div class="dialog-body">
-          <p>${message}</p>
-        </div>
-        <div class="dialog-actions">
-          <button type="button" class="button secondary" data-dialog-cancel>Cancel</button>
-          <button type="button" class="button" data-dialog-confirm>${confirmText}</button>
-        </div>
-      </div>
-    `;
-
-    const confirmButton = overlay.querySelector("[data-dialog-confirm]");
-    const cancelButton = overlay.querySelector("[data-dialog-cancel]");
-    const close = () => overlay.remove();
-
-    overlay.addEventListener("click", (event) => {
-      if (event.target === overlay) {
-        close();
-        resolve(false);
-      }
-    });
-
-    cancelButton.addEventListener("click", () => {
-      close();
-      resolve(false);
-    });
-
-    confirmButton.addEventListener("click", () => {
-      close();
-      resolve(true);
-    });
-
-    document.body.appendChild(overlay);
-    confirmButton.focus();
-  });
+function abandonmentBadge(score) {
+  if (score >= 85) return `<span class="abandonment-badge abandonment-critical">Critical risk (${score}%)</span>`;
+  if (score >= 70) return `<span class="abandonment-badge abandonment-high">High risk (${score}%)</span>`;
+  if (score >= 50) return `<span class="abandonment-badge abandonment-medium">Moderate (${score}%)</span>`;
+  return `<span class="abandonment-badge abandonment-low">Low risk (${score}%)</span>`;
 }
 
 function riskBadge(risk = "Low") {
@@ -131,115 +91,824 @@ function layout(content, currentRoute) {
   const nav = role === "officer" ? officerNav : citizenNav;
   return `<div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="#/dashboard"><span class="brand-mark"><span>+</span></span><span><strong>CivicSight</strong><small>Progress intelligence</small></span></a>
-      <div class="role-switcher"><button class="${role === "citizen" ? "active" : ""}" data-role="citizen">Field user</button><button class="${role === "officer" ? "active" : ""}" data-role="officer">Government</button></div>
+      <a class="brand" href="#/dashboard"><span class="brand-mark"><span>+</span></span><span><strong>CivicSight</strong><small>Civic Intelligence</small></span></a>
+      <div class="role-switcher">
+        <button class="${role === "citizen" ? "active" : ""}" data-role="citizen">Citizen portal</button>
+        <button class="${role === "officer" ? "active" : ""}" data-role="officer">Government</button>
+      </div>
       <div class="nav-label">Workspace</div>
-      <nav class="nav">${nav.map(([label, icon, href]) => `<a class="${currentRoute === href.slice(2) ? "active" : ""}" href="${href}"><span class="nav-icon">${icons[icon]}</span>${label}</a>`).join("")}</nav>
-      <div class="sidebar-footer"><strong>${role === "officer" ? "District Works Office" : "Civic reporting"}</strong>${role === "officer" ? "Planning & execution cell" : "Your reports make projects visible"}</div>
+      <nav class="nav">${nav
+        .map(
+          ([label, icon, href]) =>
+            `<a class="${currentRoute === href.slice(2) ? "active" : ""}" href="${href}"><span class="nav-icon">${icons[icon]}</span>${label}</a>`
+        )
+        .join("")}</nav>
+      <div class="sidebar-footer">
+        <strong>${role === "officer" ? "District Planning & Works" : "Civic Action Platform"}</strong>
+        ${role === "officer" ? "Cross-referencing gov & citizen data" : "Ground reports empower community action"}
+      </div>
     </aside>
-    <main class="main"><header class="topbar"><div class="breadcrumb">CivicSight / <b>${role === "officer" ? "Government workspace" : "Field reporting"}</b></div><div class="top-actions"><button title="Notifications">o</button><span class="avatar">${role === "officer" ? "AS" : "FU"}</span></div></header>${content}</main>
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumb">CivicSight / <b>${role === "officer" ? "Government command center" : "Citizen ground reporter"}</b></div>
+        <div class="top-actions">
+          <button title="Notifications">🔔</button>
+          <span class="avatar">${role === "officer" ? "GOV" : "CIT"}</span>
+        </div>
+      </header>
+      ${content}
+    </main>
   </div>`;
 }
 
-function projectCards() {
-  return getProjects().map((project) => `<a class="project-card" href="#/projects/${project.id}"><div><h3>${project.name}</h3><div class="project-meta">${project.category} / ${project.location}</div><div class="progress-row"><span>Actual ${project.actualProgress}%</span><span>Planned ${project.plannedProgress}%</span></div><div class="progress-track"><div class="progress-bar ${project.actualProgress < project.plannedProgress ? "warning" : ""}" style="width:${project.actualProgress}%"></div></div></div><div>${badge(project.status)}</div></a>`).join("");
+/* ==========================================================================
+   GIS Leaflet Multi-layer Map Engine (Streets + Satellite)
+   ========================================================================== */
+
+function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
+  if (typeof L === "undefined") {
+    console.warn("Leaflet library not found.");
+    return;
+  }
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (activeMapInstance) {
+    try {
+      activeMapInstance.remove();
+    } catch (e) {
+      console.warn("Map cleanup:", e);
+    }
+    activeMapInstance = null;
+  }
+
+  // AP center
+  const map = L.map(containerId).setView([16.4, 80.5], 8);
+  activeMapInstance = map;
+
+  const streetLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap contributors",
+  });
+
+  const satelliteLayer = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      maxZoom: 19,
+      attribution: "Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+    }
+  );
+
+  if (currentBasemap === "satellite") {
+    satelliteLayer.addTo(map);
+  } else {
+    streetLayer.addTo(map);
+  }
+
+  // Markers
+  const bounds = [];
+
+  // 1. Facilities
+  state.facilities.forEach((fac) => {
+    if (filterType !== "all" && filterType !== fac.type) return;
+    bounds.push([fac.lat, fac.lng]);
+
+    let color = "#2563eb";
+    let iconChar = "🏛️";
+    if (fac.type === "school") {
+      color = "#7c3aed";
+      iconChar = "🏫";
+    } else if (fac.type === "toilet") {
+      color = "#d97706";
+      iconChar = "🚾";
+    } else if (fac.type === "water") {
+      color = "#0284c7";
+      iconChar = "💧";
+    } else if (fac.type === "health") {
+      color = "#059669";
+      iconChar = "🏥";
+    }
+
+    if (fac.officialStatus === "ABANDONED" || fac.officialStatus === "DEFUNCT") {
+      color = "#dc2626";
+    }
+
+    const customMarker = L.divIcon({
+      className: "custom-gis-pin",
+      html: `<div style="background:${color};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:16px;border:2.5px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.35);">${iconChar}</div>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+    });
+
+    const popupContent = `
+      <div style="font-family:sans-serif;min-width:220px;">
+        <span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">${fac.district} • ${fac.type}</span>
+        <h4 style="margin:4px 0 6px;font-size:14px;color:#0f172a;">${fac.name}</h4>
+        <div style="margin-bottom:8px;">
+          ${badge(fac.officialStatus)}
+          ${abandonmentBadge(fac.abandonmentScore)}
+        </div>
+        <p style="font-size:12px;color:#334155;margin:0 0 8px;line-height:1.4;">${fac.conditionNotes}</p>
+        <div style="background:#f8fafc;padding:6px 8px;border-radius:4px;font-size:11px;color:#475569;margin-bottom:8px;">
+          <div>👥 Catchment: <b>${fac.populationCatchment?.toLocaleString()} residents</b></div>
+          <div>📢 Citizen ground alerts: <b>${fac.citizenReportCount} reports</b></div>
+          ${fac.recommendedAction ? `<div>💡 AI Recommendation: <b>${fac.recommendedAction}</b></div>` : ""}
+        </div>
+        <a href="#/report" style="display:inline-block;padding:5px 9px;background:#0d9488;color:white;text-decoration:none;border-radius:4px;font-size:11px;font-weight:600;">+ File Ground Report</a>
+      </div>
+    `;
+
+    L.marker([fac.lat, fac.lng], { icon: customMarker }).addTo(map).bindPopup(popupContent);
+  });
+
+  // 2. Citizen ground alerts
+  state.civicReports.forEach((rep) => {
+    if (rep.lat && rep.lng) {
+      bounds.push([rep.lat, rep.lng]);
+      const alertMarker = L.divIcon({
+        className: "custom-alert-pin",
+        html: `<div style="background:#ef4444;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:14px;border:2.5px solid white;box-shadow:0 3px 8px rgba(220,38,38,0.5);animation:pulse 1.8s infinite;">⚠️</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+
+      const alertPopup = `
+        <div style="font-family:sans-serif;min-width:210px;">
+          <span style="font-size:10px;font-weight:700;color:#dc2626;">CITIZEN GROUND ALERT</span>
+          <h4 style="margin:4px 0 6px;font-size:13px;color:#0f172a;">${rep.issueTitle}</h4>
+          <p style="font-size:12px;color:#475569;margin:0 0 6px;">${rep.description}</p>
+          <div style="font-size:11px;color:#64748b;">Reported by: <b>${rep.reportedBy}</b> (${rep.district})</div>
+          <div style="margin-top:6px;font-size:11px;color:#059669;font-weight:600;">AI Vision Confidence: ${rep.aiConfidence}%</div>
+        </div>
+      `;
+
+      L.marker([rep.lat, rep.lng], { icon: alertMarker }).addTo(map).bindPopup(alertPopup);
+    }
+  });
+
+  if (bounds.length > 0) {
+    map.fitBounds(bounds, { padding: [30, 30] });
+  }
+
+  // Bind basemap switcher events
+  const streetsBtn = document.querySelector("#btn-basemap-streets");
+  const satelliteBtn = document.querySelector("#btn-basemap-satellite");
+  if (streetsBtn && satelliteBtn) {
+    streetsBtn.onclick = () => {
+      currentBasemap = "streets";
+      if (map.hasLayer(satelliteLayer)) map.removeLayer(satelliteLayer);
+      streetLayer.addTo(map);
+      streetsBtn.classList.add("active");
+      satelliteBtn.classList.remove("active");
+    };
+    satelliteBtn.onclick = () => {
+      currentBasemap = "satellite";
+      if (map.hasLayer(streetLayer)) map.removeLayer(streetLayer);
+      satelliteLayer.addTo(map);
+      satelliteBtn.classList.add("active");
+      streetsBtn.classList.remove("active");
+    };
+  }
+
+  // Filter buttons
+  document.querySelectorAll("[data-map-filter]").forEach((btn) => {
+    btn.onclick = () => {
+      document.querySelectorAll("[data-map-filter]").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      mountLeafletMap(containerId, btn.dataset.mapFilter);
+    };
+  });
 }
 
-function activityList() {
-  const recent = state.reports.map((report) => ({ text: `New field evidence submitted for ${report.projectName}`, time: "Just now" }));
-  return `<div class="activity">${[...recent, ...state.activityFeed].map((item) => `<div class="activity-item"><span class="activity-dot"></span><div><p>${item.text}</p><time>${item.time}</time></div></div>`).join("")}</div>`;
-}
-
-function mapMarkup() {
-  return `<div class="map"><span class="pin one"></span><span class="pin warning two"></span><span class="pin three"></span><span class="pin warning four"></span><span class="map-caption"><b>${getProjects().length} projects</b> mapped across 4 zones</span></div>`;
-}
-
-function officerStatusClass(status) {
-  return String(status).toLowerCase().replace(/\s+/g, "-");
-}
-
-function officerMap(projects) {
-  return `<div class="officer-map">${projects.map((project) => `<button class="map-marker marker-${officerStatusClass(project.status)}" data-map-project="${project.id}" style="left:${project.coordinates[0]}%;top:${project.coordinates[1]}%" title="${project.name}"><span></span></button>`).join("")}<div class="map-legend"><span><i class="legend-on-track"></i>On track</span><span><i class="legend-at-risk"></i>At risk</span><span><i class="legend-delayed"></i>Delayed</span><span><i class="legend-completed"></i>Completed</span></div><div class="map-caption"><b>${projects.length} live signals</b> / district infrastructure map</div></div>`;
-}
-
-function selectedProjectDetail(project) {
-  const deviation = project.deviation ?? (project.actualProgress - project.plannedProgress);
-  return `<h2>${project.name}</h2><span class="muted">${project.location} / ${project.category}</span><div class="progress-compare"><div><span>PLANNED</span><b>${project.plannedProgress}%</b><div class="progress-track"><div class="progress-bar planned" style="width:${project.plannedProgress}%"></div></div></div><div><span>ACTUAL</span><b>${project.actualProgress}%</b><div class="progress-track"><div class="progress-bar ${deviation < 0 ? "warning" : ""}" style="width:${project.actualProgress}%"></div></div></div></div><div class="selected-metrics"><div><span>Deviation</span><b class="${deviation < 0 ? "negative" : "positive"}">${deviation > 0 ? "+" : ""}${deviation}%</b></div><div><span>AI Risk</span>${riskBadge(project.aiRisk || "Low")}</div><div><span>Confidence</span><b>${project.aiConfidence || 89}%</b></div></div><p class="risk-explanation">${project.aiExplanation || "Progress is tracking to plan."}</p><div class="action-grid"><a class="button secondary" href="#/projects/${project.id}">View Evidence</a><button class="button secondary" data-action="assign" data-project-id="${project.id}">Assign Officer</button><button class="button amber" data-action="status" data-project-id="${project.id}">Update Status</button><button class="button" data-action="verify" data-project-id="${project.id}">Verify Completion</button></div>`;
-}
-
-function officerProjectRows(projects) {
-  return projects.map((project) => {
-    const deviation = project.deviation ?? (project.actualProgress - project.plannedProgress);
-    return `<tr data-project-row="${project.id}"><td><a class="text-link" href="#/projects/${project.id}">${project.name}</a></td><td>${project.location}</td><td>${project.plannedProgress}%</td><td>${project.actualProgress}%</td><td class="${deviation < 0 ? "negative" : "positive"}">${deviation > 0 ? "+" : ""}${deviation}%</td><td>${badge(project.status)}</td><td>${riskBadge(project.aiRisk || "Low")}</td></tr>`;
-  }).join("");
-}
+/* ==========================================================================
+   Views
+   ========================================================================== */
 
 function dashboardView() {
-  const summary = getDashboardSummary();
-  const projects = getProjects();
-  const selected = projects[0];
+  const facSummary = getFacilitiesSummary();
+  const recSummary = getRecommendationsSummary();
+  const topAbandonment = [...state.facilities]
+    .sort((a, b) => b.abandonmentScore - a.abandonmentScore)
+    .slice(0, 5);
 
-  return layout(`<div class="page dashboard-page">${pageHeading("Government workspace", "Infrastructure command center", "Monitor delivery health, field evidence, and intervention priorities across the district.", `<span class="dashboard-user"><b>Anita Sharma</b><br><span class="muted">District Works Office / Planning cell</span></span>`)}<div class="stat-grid dashboard-stats">${[["Total Projects", summary.total, "total"], ["On Track", summary["On Track"], "on-track"], ["At Risk", summary["At Risk"], "at-risk"], ["Delayed", summary.Delayed, "delayed"], ["Critical", summary.Critical, "critical"], ["Completed", summary.Completed, "completed"]].map(([label, value, kind]) => `<div class="stat status-stat stat-${kind}"><span class="stat-label">${label}</span><div class="stat-value">${String(value).padStart(2, "0")}</div><span class="stat-note">Portfolio status</span></div>`).join("")}</div><div class="dashboard-grid"><section class="panel map-panel"><div class="panel-heading"><div><h2>Geographic project status</h2><span class="muted">Click a marker to inspect its delivery signal</span></div><a class="text-link" href="#/map">Open map</a></div>${officerMap(projects)}<div id="map-selection" class="map-selection"><b>${selected.name}</b><span>${selected.status} / Planned ${selected.plannedProgress}% / Actual ${selected.actualProgress}% / AI risk ${selected.aiRisk}</span></div></section><section class="panel selected-panel"><div class="eyebrow">Selected project</div><div id="selected-project-detail">${selectedProjectDetail(selected)}</div></section></div><section class="panel project-table-panel"><div class="panel-heading"><div><h2>Project register</h2><span class="muted">Search, filter, and intervene on active work</span></div><span class="badge blue">${projects.length} visible / ${projects.length} total</span></div><div class="table-controls"><input id="project-search" type="search" placeholder="Search project or district"><select id="status-filter"><option value="all">All statuses</option>${projectStatusValues.map((status) => `<option value="${status}">${status}</option>`).join("")}</select></div><table class="data-table"><thead><tr><th>Project</th><th>District</th><th>Planned</th><th>Actual</th><th>Deviation</th><th>Status</th><th>AI risk</th></tr></thead><tbody id="project-table-body">${officerProjectRows(projects)}</tbody></table></section></div>`, "dashboard");
-}
+  return layout(
+    `<div class="page dashboard-page">
+      ${pageHeading(
+        "Civic Infrastructure Intelligence",
+        "Command Center & Delivery Monitor",
+        "Combining government public assets and open demographic data with citizen-contributed ground evidence to detect abandonment and recommend actions.",
+        `<div style="display:flex;gap:8px;">
+          <a class="button amber" href="#/report">+ Report Ground Issue</a>
+          <a class="button" href="#/recommendations">View AI Recommendations</a>
+        </div>`
+      )}
 
-function projectsView() {
-  return layout(`<div class="page">${pageHeading("Government workspace", "All projects", "Track delivery against plan across the district.", `<button class="button amber" data-action="toast">+ Add project</button>`)}<section class="panel"><div class="panel-heading"><h2>Project register <span class="muted">(${getProjects().length})</span></h2><span class="muted">Updated today</span></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Project</th><th>Progress</th><th>Status</th><th>Officer</th><th>Updated</th></tr></thead><tbody>${getProjects().map((p) => `<tr><td><a class="text-link" href="#/projects/${p.id}">${p.name}</a><br><span class="muted">${p.category} / ${p.location}</span></td><td>${p.actualProgress}% / ${p.plannedProgress}% planned</td><td>${badge(p.status)}</td><td>${p.assignedOfficer}</td><td>${p.updated}</td></tr>`).join("")}</tbody></table></div></section></div>`, "projects");
+      <div class="stat-grid dashboard-stats">
+        <div class="stat status-stat stat-total">
+          <span class="stat-label">Public Facilities Tracked</span>
+          <div class="stat-value">${facSummary.total}</div>
+          <span class="stat-note">Schools, Water, Toilets, Health</span>
+        </div>
+        <div class="stat status-stat stat-critical">
+          <span class="stat-label">At-Risk / Defunct</span>
+          <div class="stat-value">${facSummary.atRiskTotal}</div>
+          <span class="stat-note">Underutilized or Abandoned</span>
+        </div>
+        <div class="stat status-stat stat-at-risk">
+          <span class="stat-label">Citizen Ground Evidence</span>
+          <div class="stat-value">${state.civicReports.length}</div>
+          <span class="stat-note">Geotagged citizen reports</span>
+        </div>
+        <div class="stat status-stat stat-delayed">
+          <span class="stat-label">Repair Actions</span>
+          <div class="stat-value">${recSummary.repair}</div>
+          <span class="stat-note">Immediate interventions</span>
+        </div>
+        <div class="stat status-stat stat-completed">
+          <span class="stat-label">Repurpose Plans</span>
+          <div class="stat-value">${recSummary.repurpose}</div>
+          <span class="stat-note">Converting disused assets</span>
+        </div>
+        <div class="stat status-stat stat-on-track">
+          <span class="stat-label">New Developments</span>
+          <div class="stat-value">${recSummary.newlyDevelop}</div>
+          <span class="stat-note">Addressing deficit zones</span>
+        </div>
+      </div>
+
+      <section class="panel" style="margin-bottom:20px;">
+        <div class="panel-heading">
+          <div>
+            <h2>Geospatial Infrastructure & Alert Map</h2>
+            <span class="muted">Interactive GIS layer showing government assets, citizen reports, and satellite imagery</span>
+          </div>
+          <div class="map-layer-toggles">
+            <button id="btn-basemap-streets" class="${currentBasemap === "streets" ? "active" : ""}">Vector Streets</button>
+            <button id="btn-basemap-satellite" class="${currentBasemap === "satellite" ? "active" : ""}">Satellite Imagery</button>
+          </div>
+        </div>
+        <div class="map-toolbar">
+          <div class="map-layer-toggles">
+            <button data-map-filter="all" class="active">All Layers</button>
+            <button data-map-filter="school">Schools</button>
+            <button data-map-filter="toilet">Public Toilets</button>
+            <button data-map-filter="water">Water Plants</button>
+            <button data-map-filter="health">Health Clinics</button>
+          </div>
+          <div class="map-stat-badges">
+            <span>🏫 ${state.facilities.filter((f) => f.type === "school").length} Schools</span>
+            <span>🚾 ${state.facilities.filter((f) => f.type === "toilet").length} Public Toilets</span>
+            <span>💧 ${state.facilities.filter((f) => f.type === "water").length} Water Points</span>
+            <span>⚠️ ${state.civicReports.length} Citizen Alerts</span>
+          </div>
+        </div>
+        <div id="gis-leaflet-map" class="leaflet-map-container"></div>
+      </section>
+
+      <div class="content-grid" style="grid-template-columns: 1.3fr 0.9fr; gap: 20px;">
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Underutilized & Abandonment Priority Watchlist</h2>
+              <span class="muted">Government registered facilities with highest citizen abandonment signals</span>
+            </div>
+            <a class="text-link" href="#/abandonment">Full detector view →</a>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Facility</th>
+                <th>District</th>
+                <th>Status</th>
+                <th>Risk Score</th>
+                <th>Recommended Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topAbandonment
+                .map(
+                  (f) => `<tr>
+                    <td><b>${f.name}</b><br><span class="muted">${f.type} • Catchment: ${f.populationCatchment?.toLocaleString()}</span></td>
+                    <td>${f.district}</td>
+                    <td>${badge(f.officialStatus)}</td>
+                    <td>${abandonmentBadge(f.abandonmentScore)}</td>
+                    <td><span class="rec-type-badge badge-${(f.recommendedAction || "repair").toLowerCase()}">${f.recommendedAction || "MAINTAIN"}</span></td>
+                  </tr>`
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Recent Ground Evidence Stream</h2>
+              <span class="muted">Live citizen uploads & AI validation</span>
+            </div>
+            <a class="text-link" href="#/report">Submit report</a>
+          </div>
+          <div class="activity">
+            ${state.civicReports
+              .slice(0, 4)
+              .map(
+                (r) => `<div class="activity-item">
+                  <span class="activity-dot" style="background:#ef4444;"></span>
+                  <div>
+                    <p><b>${r.issueTitle}</b> — ${r.facilityName}</p>
+                    <span style="font-size:11px;color:#64748b;">${r.description.slice(0, 85)}...</span>
+                    <div style="font-size:10px;color:#0d9488;margin-top:2px;">AI Match: ${r.aiConfidence}% confidence • ${r.district}</div>
+                  </div>
+                </div>`
+              )
+              .join("")}
+          </div>
+        </section>
+      </div>
+    </div>`,
+    "dashboard"
+  );
 }
 
 function mapView() {
-  return layout(`<div class="page">${pageHeading("Geographic view", "Project map", "Locate active infrastructure work and identify clusters of delivery risk.")}<section class="panel">${mapMarkup()}<div style="display:flex;gap:14px;margin-top:15px;font-size:12px"><span><i style="color:var(--teal)">●</i> On track</span><span><i style="color:var(--amber)">●</i> At risk</span><span><i style="color:var(--red)">●</i> Delayed</span><span><i style="color:#397bb1">●</i> Completed</span></div></section><div class="content-grid"><section class="panel"><div class="panel-heading"><h2>Zone summary</h2></div>${["North district", "East district", "South district", "West district"].map((zone, i) => `<div class="summary-row"><span>${zone}</span><b>${[2, 1, 2, 1][i]} projects</b></div>`).join("")}</section><section class="panel"><div class="panel-heading"><h2>Risk signal</h2></div><p class="muted">West and North districts show the strongest planned-versus-actual variance this month.</p><a class="text-link" href="#/projects/road-zone-a">Review Road Development – Zone A</a></section></div></div>`, "map");
+  return layout(
+    `<div class="page">
+      ${pageHeading(
+        "Geospatial Intelligence",
+        "Interactive Infrastructure GIS & Satellite Map",
+        "Pan, zoom, and inspect public assets against satellite imagery, population clusters, and citizen alerts."
+      )}
+      <section class="panel">
+        <div class="map-toolbar">
+          <div class="map-layer-toggles">
+            <button id="btn-basemap-streets" class="${currentBasemap === "streets" ? "active" : ""}">Vector Streets</button>
+            <button id="btn-basemap-satellite" class="${currentBasemap === "satellite" ? "active" : ""}">Satellite Imagery</button>
+          </div>
+          <div class="map-layer-toggles">
+            <button data-map-filter="all" class="active">Show All</button>
+            <button data-map-filter="school">Schools</button>
+            <button data-map-filter="toilet">Public Toilets</button>
+            <button data-map-filter="water">Water Assets</button>
+            <button data-map-filter="health">Health Centers</button>
+          </div>
+        </div>
+        <div id="gis-leaflet-map" class="leaflet-map-container" style="height:540px;"></div>
+      </section>
+
+      <div class="content-grid" style="margin-top:20px;">
+        <section class="panel">
+          <div class="panel-heading"><h2>District Infrastructure Coverage</h2></div>
+          ${state.demographics
+            .map(
+              (d) => `<div class="summary-row" style="padding:10px 0;border-bottom:1px solid #edf1f4;">
+                <div>
+                  <b>${d.district}</b>
+                  <span class="muted" style="display:block;font-size:11px;">Population: ${d.population.toLocaleString()} • Density: ${d.density}/km²</span>
+                </div>
+                <div style="text-align:right;">
+                  <b>${d.facilitiesCount} Assets</b>
+                  <span class="badge ${d.vulnerabilityIndex > 0.35 ? "red" : "amber"}" style="font-size:10px;">Deficit idx ${d.vulnerabilityIndex}</span>
+                </div>
+              </div>`
+            )
+            .join("")}
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading"><h2>Identified Deficit Hotspots</h2></div>
+          <p class="muted" style="font-size:13px;line-height:1.5;">
+            Geospatial catchment analysis cross-referencing population density against functional public facilities has identified the following high-priority infrastructure voids:
+          </p>
+          <ul style="padding-left:18px;font-size:12px;color:#334155;line-height:1.7;">
+            <li><b>Guntur West Slum Zone:</b> 13,800 residents with zero functional toilets within 1.8km radius.</li>
+            <li><b>Tirupati Outer Ring:</b> 7,500 residents lacking clean piped drinking water.</li>
+            <li><b>Visakhapatnam Anandapuram:</b> Healthcare deficit zone requiring new Primary Health Center.</li>
+            <li><b>Vijayawada Sector 3:</b> Underutilized school with 8 vacant classrooms suitable for digital library.</li>
+          </ul>
+        </section>
+      </div>
+    </div>`,
+    "map"
+  );
+}
+
+function abandonmentView() {
+  const facilities = state.facilities;
+  return layout(
+    `<div class="page">
+      ${pageHeading(
+        "Infrastructure Underutilization & Abandonment",
+        "Public Asset Condition & Abandonment Detector",
+        "Detects facilities officially recorded as active that are actually abandoned, locked, or unmaintained based on citizen ground evidence.",
+        `<a class="button amber" href="#/report">+ Report Abandoned Facility</a>`
+      )}
+
+      <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+        <div class="stat"><span class="stat-label">Underutilized Assets</span><div class="stat-value">${facilities.filter((f) => f.officialStatus === "UNDERUTILIZED").length}</div></div>
+        <div class="stat"><span class="stat-label">Confirmed Abandoned</span><div class="stat-value">${facilities.filter((f) => f.officialStatus === "ABANDONED").length}</div></div>
+        <div class="stat"><span class="stat-label">Defunct / Locked</span><div class="stat-value">${facilities.filter((f) => f.officialStatus === "DEFUNCT").length}</div></div>
+        <div class="stat"><span class="stat-label">Population Affected</span><div class="stat-value" style="font-size:20px;">${facilities.reduce((sum, f) => sum + (f.populationCatchment || 0), 0).toLocaleString()}</div></div>
+      </div>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Monitored Public Facilities Register</h2>
+          <span class="muted">${facilities.length} government assets evaluated</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Facility Name</th>
+                <th>Type & District</th>
+                <th>Official Status</th>
+                <th>Risk Score</th>
+                <th>Ground Observations & Citizen Feedback</th>
+                <th>Recommended Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${facilities
+                .map(
+                  (f) => `<tr>
+                    <td><b>${f.name}</b><br><span class="muted">Est. ${f.establishedYear} • Last insp: ${f.lastInspection}</span></td>
+                    <td>${f.type.toUpperCase()}<br><span class="muted">${f.district}</span></td>
+                    <td>${badge(f.officialStatus)}</td>
+                    <td>${abandonmentBadge(f.abandonmentScore)}</td>
+                    <td style="max-width:320px;font-size:12px;color:#334155;">
+                      ${f.conditionNotes}
+                      <div style="margin-top:4px;font-size:11px;color:#dc2626;">📢 ${f.citizenReportCount} citizen reports verified</div>
+                    </td>
+                    <td>
+                      <span class="rec-type-badge badge-${(f.recommendedAction || "repair").toLowerCase()}">${f.recommendedAction || "MAINTAIN"}</span>
+                      <div style="font-size:11px;color:#64748b;margin-top:3px;">${f.proposedUse || "Regular maintenance"}</div>
+                    </td>
+                  </tr>`
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>`,
+    "abandonment"
+  );
+}
+
+function recommendationsView() {
+  let recs = state.recommendations;
+  if (activeRecFilter !== "all") {
+    recs = recs.filter((r) => r.type.toLowerCase() === activeRecFilter.toLowerCase());
+  }
+
+  return layout(
+    `<div class="page">
+      ${pageHeading(
+        "AI Strategic Decision Engine",
+        "Action Recommendations: Repair, Repurpose, or Develop",
+        "Synthesizes demographic census data, existing infrastructure records, and ground citizen evidence into actionable civic intervention plans."
+      )}
+
+      <div class="map-layer-toggles" style="margin-bottom:18px;">
+        <button data-rec-tab="all" class="${activeRecFilter === "all" ? "active" : ""}">All Recommendations (${state.recommendations.length})</button>
+        <button data-rec-tab="repair" class="${activeRecFilter === "repair" ? "active" : ""}">🔧 Repair Urgent Infrastructure (${state.recommendations.filter((r) => r.type === "REPAIR").length})</button>
+        <button data-rec-tab="repurpose" class="${activeRecFilter === "repurpose" ? "active" : ""}">🔄 Repurpose Abandoned Assets (${state.recommendations.filter((r) => r.type === "REPURPOSE").length})</button>
+        <button data-rec-tab="newly_develop" class="${activeRecFilter === "newly_develop" ? "active" : ""}">🏗️ Newly Develop in Deficit Hotspots (${state.recommendations.filter((r) => r.type === "NEWLY_DEVELOP").length})</button>
+      </div>
+
+      <div class="rec-grid">
+        ${recs
+          .map((r) => {
+            const badgeClass =
+              r.type === "REPAIR"
+                ? "badge-repair"
+                : r.type === "REPURPOSE"
+                ? "badge-repurpose"
+                : "badge-develop";
+            const icon = r.type === "REPAIR" ? "🔧" : r.type === "REPURPOSE" ? "🔄" : "🏗️";
+
+            return `
+            <div class="rec-card">
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                  <span class="rec-type-badge ${badgeClass}">${icon} ${r.type.replace("_", " ")}</span>
+                  <span class="badge ${r.urgency === "CRITICAL" ? "red" : r.urgency === "HIGH" ? "amber" : "green"}">${r.urgency}</span>
+                </div>
+                <h3 class="rec-title">${r.targetFacilityName}</h3>
+                <span class="rec-district">📍 ${r.district} • Social ROI: <b>${r.roiScore}/10</b></span>
+                <p class="rec-rationale">${r.rationale}</p>
+                ${r.proposedUse ? `<div style="background:#f0fdf4;border-left:3px solid #16a34a;padding:8px 10px;border-radius:4px;font-size:12px;margin-bottom:12px;"><b>Proposed New Utility:</b> ${r.proposedUse}</div>` : ""}
+              </div>
+
+              <div>
+                <div class="rec-metrics">
+                  <div class="rec-metric-item">
+                    <span>Beneficiaries</span>
+                    <b>${r.affectedPopulation?.toLocaleString()} ppl</b>
+                  </div>
+                  <div class="rec-metric-item">
+                    <span>Est. Cost</span>
+                    <b>${r.estimatedCost}</b>
+                  </div>
+                  <div class="rec-metric-item">
+                    <span>Timeline</span>
+                    <b>${r.timelineDays} days</b>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                  <span style="font-size:11px;font-weight:700;color:#64748b;">KEY ACTION ITEMS:</span>
+                  <ul style="padding-left:16px;margin:5px 0 0;font-size:11px;color:#334155;line-height:1.5;">
+                    ${r.actionItems.map((item) => `<li>${item}</li>`).join("")}
+                  </ul>
+                </div>
+
+                <div class="rec-actions">
+                  <button class="button ${r.status === "APPROVED_FOR_TENDER" || r.status === "APPROVED_BY_OFFICER" ? "secondary" : "amber"}" data-action="approve-rec" data-rec-id="${r.id}">
+                    ${r.status === "APPROVED_BY_OFFICER" ? "✓ Approved by Officer" : r.status === "APPROVED_FOR_TENDER" ? "Approved for Tender" : "Approve Action Plan"}
+                  </button>
+                </div>
+              </div>
+            </div>`;
+          })
+          .join("")}
+      </div>
+    </div>`,
+    "recommendations"
+  );
+}
+
+function resolutionsView() {
+  const resolutions = state.resolutions;
+  return layout(
+    `<div class="page">
+      ${pageHeading(
+        "Resolution Verification Studio",
+        "Before vs. After Visual Verification",
+        "Validates that civic works, repairs, and facility unlocks reported as completed are verified by visual AI comparison and field sign-offs."
+      )}
+
+      <div class="resolution-grid">
+        ${resolutions
+          .map(
+            (res) => `
+            <div class="resolution-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                  <span style="font-size:11px;color:#64748b;font-weight:700;">${res.district}</span>
+                  <h3 style="margin:3px 0 6px;font-size:15px;color:#0f172a;">${res.facilityName}</h3>
+                </div>
+                <span class="badge green">VERIFIED</span>
+              </div>
+              <p style="font-size:12px;color:#475569;margin:0 0 10px;">Issue: <b>${res.issueReported}</b></p>
+
+              <div class="comparison-container">
+                <div class="comparison-box">
+                  <div class="comparison-label">BEFORE REPAIR</div>
+                  <img src="${res.beforeImage}" alt="Before evidence">
+                  <div style="font-size:10px;padding:4px;color:#64748b;">Reported by ${res.reportedBy}</div>
+                </div>
+                <div class="comparison-box">
+                  <div class="comparison-label after">AFTER RESOLUTION</div>
+                  <img src="${res.afterImage}" alt="After resolution">
+                  <div style="font-size:10px;padding:4px;color:#059669;font-weight:600;">Resolved by ${res.resolvedBy}</div>
+                </div>
+              </div>
+
+              <div class="ai-verification-badge">
+                <span>🤖 AI Visual Verification Score</span>
+                <span style="font-size:14px;color:#047857;">${res.aiVerificationScore}% Match</span>
+              </div>
+              <p style="font-size:11px;color:#334155;margin:8px 0 0;line-height:1.4;">${res.aiInspectionReport}</p>
+            </div>`
+          )
+          .join("")}
+      </div>
+    </div>`,
+    "resolutions"
+  );
+}
+
+function reportView() {
+  return layout(
+    `<div class="page">
+      ${pageHeading(
+        "Citizen Ground Evidence Portal",
+        "Report Facility Issue or Abandonment",
+        "Upload geotagged photos or videos to report locked facilities, abandoned schools, defunct water kiosks, or structural damage."
+      )}
+
+      <div class="stepper">
+        <span class="active">1 Quick Issue Tag</span>
+        <span>2 Match Facility</span>
+        <span>3 Photo / Video Evidence</span>
+        <span>4 Submit & Verify</span>
+      </div>
+
+      <div class="form-layout">
+        <form class="form-panel" id="citizen-evidence-form">
+          <h2>Report Ground Evidence</h2>
+
+          <div class="field">
+            <label>Select Issue Category</label>
+            <div class="category-pills" id="category-pills-container">
+              <button type="button" class="category-pill selected" data-issue="LOCKED_TOILET">🚾 Locked Public Toilet</button>
+              <button type="button" class="category-pill" data-issue="ABANDONED_SCHOOL">🏫 Abandoned School</button>
+              <button type="button" class="category-pill" data-issue="DEFUNCT_WATER">💧 Defunct Water Plant</button>
+              <button type="button" class="category-pill" data-issue="DEFUNCT_FACILITY">⚠️ Non-Functional Facility</button>
+              <button type="button" class="category-pill" data-issue="DAMAGED_INFRASTRUCTURE">🚧 Damaged Road / Culvert</button>
+            </div>
+            <input type="hidden" id="selected-issue-type" value="LOCKED_TOILET">
+          </div>
+
+          <div class="field">
+            <label for="project-search">Associated Public Facility</label>
+            <input id="project-search" list="facility-options" required placeholder="Type or select a registered government facility...">
+            <datalist id="facility-options">
+              ${state.facilities
+                .map((f) => `<option value="${f.name}">${f.type.toUpperCase()} • ${f.district} (${f.officialStatus})</option>`)
+                .join("")}
+            </datalist>
+            <div id="project-info" class="selection-info">Select a facility or let GPS find the nearest government asset.</div>
+          </div>
+
+          <div class="field">
+            <label for="evidence-file">Photo or Video Evidence</label>
+            <div class="upload upload-active">
+              <strong>Drop files here or choose from this device</strong>
+              <span>JPG, PNG, WEBP, MP4 up to 25 MB</span>
+              <input id="evidence-file" type="file" accept="image/*,video/*" multiple required>
+              <div id="evidence-preview" class="evidence-preview"></div>
+              <p id="evidence-error" class="form-error" hidden>Please add at least one photo or video before continuing.</p>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Geolocation (GPS Coordinates)</label>
+            <div class="location-box">
+              <strong id="location-status">Location ready</strong>
+              <span id="location-value">Using Andhra Pradesh default or device GPS</span>
+              <div class="location-fields">
+                <input id="latitude" type="number" step="any" placeholder="Latitude" value="16.5123">
+                <input id="longitude" type="number" step="any" placeholder="Longitude" value="80.6214">
+              </div>
+              <button class="button secondary" type="button" data-action="locate">📍 Auto-Detect My Current GPS</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="description">Ground Observation / Issue Description <span class="muted">(min 20 chars)</span></label>
+            <textarea id="description" required placeholder="Describe what is wrong: e.g. This toilet has been padlocked for 6 months, no water supply, weeds overgrown..."></textarea>
+            <div class="character-count"><span id="description-count">0</span>/500</div>
+            <p id="description-error" class="form-error" hidden>Please enter at least 20 characters describing the condition.</p>
+          </div>
+
+          <button class="button full" type="submit" style="margin-top:14px;font-size:14px;padding:12px;">Submit Ground Evidence</button>
+          <p id="submit-error" class="form-error" hidden>There was a problem submitting your report. Please try again.</p>
+        </form>
+
+        <aside class="form-panel">
+          <h2>How AI Evaluates Your Report</h2>
+          <div class="summary">
+            <b>1. Proximity Cross-Referencing</b>
+            <p class="muted" style="font-size:12px;margin:5px 0 0">Your GPS coordinates are matched against the official Government Infrastructure Registry to pinpoint the exact asset ID.</p>
+          </div>
+          <div class="summary">
+            <b>2. Vision AI Deterioration Analysis</b>
+            <p class="muted" style="font-size:12px;margin:5px 0 0">Visual models inspect your photo for rusted padlocks, broken glass, vegetation overgrowth, and dry taps to calculate an Abandonment Score.</p>
+          </div>
+          <div class="summary">
+            <b>3. Policy Recommendation Matrix</b>
+            <p class="muted" style="font-size:12px;margin:5px 0 0">Verified reports automatically route into District Works planning for urgent <b>Repair</b> or community <b>Repurposing</b>.</p>
+          </div>
+        </aside>
+      </div>
+    </div>`,
+    "report"
+  );
+}
+
+function confirmationView() {
+  const submission = latestSubmission || state.civicReports[0];
+  return layout(
+    `<div class="page">
+      <div class="confirmation">
+        <section class="panel">
+          <div class="check">✓</div>
+          <div class="eyebrow">Ground Report Received</div>
+          <h1>Thank you for your civic contribution</h1>
+          <p class="subhead">Your evidence has been geotagged and cross-referenced with the Government Infrastructure Registry.</p>
+          <div class="summary" style="text-align:left;margin:25px 0">
+            <div class="summary-row"><span>Reference ID</span><b>${submission?.id || "CIV-2026-8941"}</b></div>
+            <div class="summary-row"><span>Asset</span><b>${submission?.facilityName || submission?.project || "Public Facility"}</b></div>
+            <div class="summary-row"><span>Status</span><b>${badge("Confirmed Issue")}</b></div>
+            <div class="summary-row"><span>AI Verification</span><b>${submission?.aiConfidence || 92}% Confidence</b></div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:center;">
+            <a class="button" href="#/map">View on GIS Map</a>
+            <a class="button secondary" href="#/recommendations">View AI Recommendations</a>
+          </div>
+        </section>
+      </div>
+    </div>`,
+    "submissions"
+  );
+}
+
+function projectsView() {
+  return layout(
+    `<div class="page">
+      ${pageHeading("Government workspace", "Capital Works Register", "Track construction and maintenance projects against planned schedules.", `<button class="button amber" data-action="toast">+ Add project</button>`)}
+      <section class="panel">
+        <div class="panel-heading"><h2>Project Register <span class="muted">(${getProjects().length})</span></h2></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Project</th><th>Progress</th><th>Status</th><th>Officer</th><th>Updated</th></tr>
+            </thead>
+            <tbody>
+              ${getProjects()
+                .map(
+                  (p) =>
+                    `<tr><td><a class="text-link" href="#/projects/${p.id}">${p.name}</a><br><span class="muted">${p.category} / ${p.location}</span></td><td>${p.actualProgress}% / ${p.plannedProgress}% planned</td><td>${badge(p.status)}</td><td>${p.assignedOfficer}</td><td>${p.updated}</td></tr>`
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>`,
+    "projects"
+  );
 }
 
 async function detailView(id) {
   const project = getProject(id) || getProjects()[0];
   if (!project) return layout("<div class='page'><p class='muted'>Project not found.</p></div>", "projects");
 
-  let evidence = [];
-  try {
-    evidence = await evidenceApi.getProjectEvidence(project.id);
-  } catch (err) {
-    console.warn("Evidence backend unavailable:", err);
-  }
-  if (evidence && evidence.length) project.evidence = evidence;
-
-  return layout(`<div class="page">${pageHeading("Project details", project.name, `${project.category} / ${project.location}`, `<a class="button secondary" href="#/projects">Back to projects</a>`)}<div class="hero-strip"><div><h2>${["At Risk", "Delayed", "Critical"].includes(project.status) ? "Potential delay detected" : "Delivery is progressing"}</h2><p>Last field update ${project.updated}. Assigned to ${project.assignedOfficer}.</p></div><button class="button amber" data-action="toast">Update status</button></div><div class="stat-grid"><div class="stat"><span class="stat-label">Planned progress</span><div class="stat-value">${project.plannedProgress}%</div></div><div class="stat"><span class="stat-label">Actual progress</span><div class="stat-value">${project.actualProgress}%</div></div><div class="stat"><span class="stat-label">AI confidence</span><div class="stat-value">${project.aiConfidence || 89}%</div></div><div class="stat"><span class="stat-label">Budget</span><div class="stat-value" style="font-size:21px">${project.budget}</div></div></div><div class="content-grid"><section class="panel"><div class="panel-heading"><h2>Evidence timeline</h2><button class="button secondary" data-action="toast">Assign officer</button></div>${activityList()}<div class="panel-heading" style="margin-top:16px"><h2>Latest evidence</h2></div><div class="upload" style="min-height:130px"><strong>${project.evidence?.[0]?.fileName || "Field evidence"}</strong><br>${project.evidence?.[0]?.description || "No evidence uploaded yet."}</div></section><section class="panel"><div class="panel-heading"><h2>Planned vs actual</h2></div><div class="chart">${[55, 62, 67, 74, 80].map((value, i) => `<div class="bar-group"><div class="bar" style="height:${value}%"></div><div class="bar actual" style="height:${[42, 45, 49, 51, 55][i]}%"></div><small>W${i + 1}</small></div>`).join("")}</div><div class="summary"><b>AI review</b><p class="muted" style="margin:4px 0 0;font-size:12px">${project.aiExplanation || "No AI review available."}</p></div><button class="button secondary" data-action="assign" data-project-id="${project.id}">Assign Officer</button></section></div></div>`, "projects");
-}
-
-function reportView() {
-  return layout(`<div class="page">${pageHeading("Field reporting", "Report project evidence", "Complete the four steps below so the project team can verify your update.")}<div class="stepper"><span class="active">1 Project</span><span>2 Evidence</span><span>3 Location</span><span>4 Review</span></div><div class="form-layout"><form class="form-panel" id="citizen-evidence-form"><h2>Evidence details</h2><div class="field"><label for="project-search">Project or facility</label><input id="project-search" list="project-options" required placeholder="Search by project or facility name"><datalist id="project-options">${getProjects().map((p) => `<option value="${p.name}">${p.category} / ${p.location}</option>`).join("")}</datalist><div id="project-info" class="selection-info">Select a project to see its current status.</div></div><div class="field"><label for="evidence-file">Photo or video evidence</label><div class="upload upload-active"><strong>Drop files here or choose from this device</strong><span>JPG, PNG, WEBP, MP4 up to 25 MB</span><input id="evidence-file" type="file" accept="image/*,video/*" multiple required><div id="evidence-preview" class="evidence-preview"></div><p id="evidence-error" class="form-error" hidden>Please add at least one photo or video before continuing.</p></div></div><div class="field"><label>Location</label><div class="location-box"><strong id="location-status">Location not captured</strong><span id="location-value">Use device location or enter coordinates manually.</span><div class="location-fields"><input id="latitude" type="number" step="any" placeholder="Latitude"><input id="longitude" type="number" step="any" placeholder="Longitude"></div><button class="button secondary" type="button" data-action="locate">Use my current location</button></div></div><div class="field"><label for="description">Observed condition or progress <span class="muted">(20-500 characters)</span></label><textarea id="description" required placeholder="Describe the current condition, progress, or issue visible on site..."></textarea><div class="character-count"><span id="description-count">0</span>/500</div><p id="description-error" class="form-error" hidden>Please enter at least 20 characters.</p></div><div class="review-panel" id="review-panel" hidden><h3>Review before submit</h3><div id="review-content"></div></div><button class="button full" type="button" data-action="review">Review evidence</button><button class="button full" type="submit" style="margin-top:8px">Submit evidence</button><p id="submit-error" class="form-error" hidden>There was a problem submitting your evidence. Please try again.</p></form><aside class="form-panel"><h2>Before you submit</h2><div class="summary"><b>Be specific</b><p class="muted" style="font-size:12px;margin:5px 0 0">Mention the work visible, approximate progress, and anything blocking delivery.</p></div><div class="summary"><b>Keep location on</b><p class="muted" style="font-size:12px;margin:5px 0 0">A location helps the project team verify your report quickly.</p></div><div class="summary"><b>AI review</b><p class="muted" style="font-size:12px;margin:5px 0 0">Your submission will generate a mock AI risk and progress analysis to support officer review.</p></div></aside></div></div>`, "report");
-}
-
-function confirmationView() {
-  const submission = latestSubmission || state.reports[0];
-  return layout(`<div class="page"><div class="confirmation"><section class="panel"><div class="check">✓</div><div class="eyebrow">Submission received</div><h1>Thank you for the update</h1><p class="subhead">Your evidence has been linked to ${submission?.project || "Road Development - Zone A"} and sent to the district works office.</p><div class="summary" style="text-align:left;margin:25px 0"><div class="summary-row"><span>Reference</span><b>${submission?.id || "EVD-2026-0826"}</b></div><div class="summary-row"><span>Location</span><b>${submission?.location || "Captured location"}</b></div><div class="summary-row"><span>Status</span><b>Under review</b></div></div><a class="button" href="#/submission-result">View project and AI analysis</a></section></div></div>`, "submission");
-}
-
-function resultView() {
-  const analysis = latestAnalysis || { plannedProgress: 80, reportedProgress: 55, deviation: -25, riskLevel: "High", finding: "Potential delay detected", confidence: 89, explanation: "Reported progress is 25 points behind the plan. Officer verification is recommended." };
-  return layout(`<div class="page">${pageHeading("Submission result", latestSubmission?.project || "Road Development - Zone A", "Your reported evidence has been added to the project record.")}<section class="panel"><div class="eyebrow">Mock AI-assisted review</div><h2>${analysis.finding}</h2><div class="result-grid"><div><div class="result-label">Planned progress</div><div class="result-value">${analysis.plannedProgress}%</div></div><div><div class="result-label">Reported progress</div><div class="result-value attention">${analysis.reportedProgress}%</div></div><div><div class="result-label">Deviation</div><div class="result-value attention">${analysis.deviation} pts</div></div><div><div class="result-label">AI confidence</div><div class="result-value confidence">${analysis.confidence}%</div></div></div><div class="summary"><b>Risk level: ${analysis.riskLevel}</b><p class="muted" style="margin:4px 0 0;font-size:12px">${analysis.explanation}</p></div><p class="muted">This is a mock decision-support response for the MVP. It is not an actual AI model and must be verified by an officer.</p><a class="button" href="#/report">Report another update</a></section></div>`, "submission-result");
+  return layout(
+    `<div class="page">
+      ${pageHeading("Project details", project.name, `${project.category} / ${project.location}`, `<a class="button secondary" href="#/projects">Back to projects</a>`)}
+      <div class="hero-strip">
+        <div>
+          <h2>${["At Risk", "Delayed", "Critical"].includes(project.status) ? "Schedule variance detected" : "Work is progressing"}</h2>
+          <p>Last field update ${project.updated}. Assigned to ${project.assignedOfficer}.</p>
+        </div>
+        <button class="button amber" data-action="toast">Update status</button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><span class="stat-label">Planned progress</span><div class="stat-value">${project.plannedProgress}%</div></div>
+        <div class="stat"><span class="stat-label">Actual progress</span><div class="stat-value">${project.actualProgress}%</div></div>
+        <div class="stat"><span class="stat-label">AI confidence</span><div class="stat-value">${project.aiConfidence || 89}%</div></div>
+        <div class="stat"><span class="stat-label">Budget</span><div class="stat-value" style="font-size:21px">${project.budget}</div></div>
+      </div>
+    </div>`,
+    "projects"
+  );
 }
 
 function analyticsView() {
-  const analytics = analyticsApi.getAnalytics ? analyticsApi.getAnalytics() : { plannedVsActual: [], reportVolume: 0, completionRate: 0 };
-  const chartData = analytics.plannedVsActual || [];
-  return layout(`<div class="page">${pageHeading("Performance", "Analytics", "Delivery signals across the current project portfolio.")}<div class="content-grid"><section class="panel"><div class="panel-heading"><h2>Portfolio progress</h2><span class="muted">Apr - Aug 2026</span></div><div class="chart">${chartData.length ? chartData.map((item) => `<div class="bar-group"><div class="bar" style="height:${item.planned}%"></div><div class="bar actual" style="height:${item.actual}%"></div><small>${item.label}</small></div>`).join("") : "<p class='muted'>No analytics data available.</p>"}</div></section><section class="panel"><div class="panel-heading"><h2>Signal summary</h2></div>${[["Evidence reviewed", `${analytics.reportVolume || 0}`], ["Average variance", `${Math.round(getProjects().reduce((sum, p) => sum + (p.deviation || 0), 0) / getProjects().length) || 0} pts`], ["Verified completions", `${analytics.completionRate || 0}%`]].map(([label, value]) => `<div class="summary-row"><span>${label}</span><b>${value}</b></div>`).join("")}</section></div></div>`, "analytics");
+  return layout(
+    `<div class="page">
+      ${pageHeading("Demographics & Performance", "District Infrastructure Analytics", "Demographic census overlay and civic condition metrics across districts.")}
+      <div class="content-grid">
+        <section class="panel">
+          <div class="panel-heading"><h2>District Demographics & Deficit Indices</h2></div>
+          <table class="data-table">
+            <thead>
+              <tr><th>District</th><th>Population</th><th>Density / km²</th><th>Tracked Assets</th><th>Vulnerability Index</th></tr>
+            </thead>
+            <tbody>
+              ${state.demographics
+                .map(
+                  (d) =>
+                    `<tr><td><b>${d.district}</b></td><td>${d.population.toLocaleString()}</td><td>${d.density}</td><td>${d.facilitiesCount}</td><td>${badge(d.vulnerabilityIndex > 0.35 ? "High deficit" : "Moderate")}</td></tr>`
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </section>
+        <section class="panel">
+          <div class="panel-heading"><h2>AI Intelligence Summary</h2></div>
+          ${[
+            ["Facilities Analyzed", `${state.facilities.length}`],
+            ["Identified for Repurposing", `${state.recommendations.filter((r) => r.type === "REPURPOSE").length}`],
+            ["Urgent Repair Interventions", `${state.recommendations.filter((r) => r.type === "REPAIR").length}`],
+            ["New Infrastructure Proposals", `${state.recommendations.filter((r) => r.type === "NEWLY_DEVELOP").length}`],
+            ["Total Citizens Benefited", `${state.recommendations.reduce((s, r) => s + (r.affectedPopulation || 0), 0).toLocaleString()}`],
+          ]
+            .map(([label, value]) => `<div class="summary-row"><span>${label}</span><b>${value}</b></div>`)
+            .join("")}
+        </section>
+      </div>
+    </div>`,
+    "analytics"
+  );
 }
 
-async function render() {
-  const hash = location.hash || "#/dashboard";
-  app.innerHTML = `<div class="page"><p class="muted">Loading…</p></div>`;
-  let view;
-  try {
-    view = await viewForHash(hash);
-  } catch (err) {
-    view = layout(`<div class="page"><p class="form-error">Could not load data: ${err.message}</p></div>`, "");
-  }
-  app.innerHTML = view;
-  bindGlobalEvents();
-
-  if (hash === "#/dashboard") bindOfficerEvents();
-  if (hash === "#/report") bindCitizenEvents();
-}
+/* ==========================================================================
+   Routing & Event Binding
+   ========================================================================== */
 
 async function viewForHash(hash) {
   if (role === "citizen" && hash === "#/dashboard") {
@@ -248,12 +917,35 @@ async function viewForHash(hash) {
   }
   if (hash === "#/report") return reportView();
   if (hash === "#/submissions") return confirmationView();
-  if (hash === "#/submission-result") return resultView();
-  if (hash === "#/projects") return projectsView();
   if (hash === "#/map") return mapView();
+  if (hash === "#/abandonment") return abandonmentView();
+  if (hash === "#/recommendations") return recommendationsView();
+  if (hash === "#/resolutions") return resolutionsView();
+  if (hash === "#/projects") return projectsView();
   if (hash === "#/analytics") return analyticsView();
   if (hash.startsWith("#/projects/")) return await detailView(hash.split("/")[2]);
   return dashboardView();
+}
+
+async function render() {
+  const hash = location.hash || "#/dashboard";
+  app.innerHTML = `<div class="page"><p class="muted">Loading CiviSight…</p></div>`;
+  let view;
+  try {
+    view = await viewForHash(hash);
+  } catch (err) {
+    view = layout(`<div class="page"><p class="form-error">Error: ${err.message}</p></div>`, "");
+  }
+  if (view) {
+    app.innerHTML = view;
+  }
+  bindGlobalEvents();
+
+  if (hash === "#/dashboard" || hash === "#/map") {
+    setTimeout(() => mountLeafletMap("gis-leaflet-map"), 50);
+  }
+  if (hash === "#/report") bindCitizenEvents();
+  if (hash === "#/recommendations") bindRecommendationEvents();
 }
 
 function bindGlobalEvents() {
@@ -267,123 +959,83 @@ function bindGlobalEvents() {
   document.querySelectorAll("[data-action='toast']").forEach((button) => {
     button.addEventListener("click", () => {
       button.textContent = "Saved";
-      setTimeout(() => { button.textContent = "Done"; }, 900);
+      setTimeout(() => {
+        button.textContent = "Done";
+      }, 900);
     });
   });
 }
 
-function bindOfficerEvents() {
-  const detail = document.querySelector("#selected-project-detail");
-  const selection = document.querySelector("#map-selection");
-  const search = document.querySelector("#project-search");
-  const filter = document.querySelector("#status-filter");
-  const tableBody = document.querySelector("#project-table-body");
+function bindRecommendationEvents() {
+  document.querySelectorAll("[data-rec-tab]").forEach((btn) => {
+    btn.onclick = () => {
+      activeRecFilter = btn.dataset.recTab;
+      render();
+    };
+  });
 
-  const renderSelection = (id) => {
-    const project = getProject(id) || getProjects()[0];
-    detail.innerHTML = selectedProjectDetail(project);
-    selection.innerHTML = `<b>${project.name}</b><span>${project.status} / Planned ${project.plannedProgress}% / Actual ${project.actualProgress}% / AI risk ${project.aiRisk}</span>`;
-    bindOfficerActions();
-  };
-
-  const filterRows = () => {
-    if (!search || !filter || !tableBody) return;
-    const query = search.value.toLowerCase();
-    const status = filter.value;
-    tableBody.innerHTML = officerProjectRows(getProjects().filter((project) => (status === "all" || project.status === status) && `${project.name} ${project.location}`.toLowerCase().includes(query)));
-    tableBody.querySelectorAll("[data-project-row]").forEach((row) => row.addEventListener("click", () => renderSelection(row.dataset.projectRow)));
-  };
-
-  const bindOfficerActions = () => {
-    document.querySelectorAll("[data-map-project]").forEach((button) => {
-      button.addEventListener("click", () => renderSelection(button.dataset.mapProject));
-    });
-
-    document.querySelectorAll("[data-action='assign']").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const project = getProject(button.dataset.projectId);
-        const officer = await showDialog({
-          title: "Assign officer",
-          message: `Assign a responsible officer for ${project.name}.`,
-          defaultValue: project.assignedOfficer,
-          inputLabel: "Officer name",
-          confirmText: "Save",
-        });
-        if (officer) {
-          await projectsApi.assignOfficer(button.dataset.projectId, officer);
-          render();
-        }
-      });
-    });
-
-    document.querySelectorAll("[data-action='status']").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const project = getProject(button.dataset.projectId);
-        const nextStatus = await showDialog({
-          title: "Update project status",
-          message: `Choose the next status for ${project.name}.`,
-          defaultValue: project.status,
-          inputLabel: "Status (On Track, At Risk, Delayed, Critical, or Completed)",
-          confirmText: "Update",
-        });
-        if (nextStatus) {
-          await projectsApi.updateProjectStatus(button.dataset.projectId, nextStatus);
-          render();
-        }
-      });
-    });
-
-    document.querySelectorAll("[data-action='verify']").forEach((button) => {
-      button.addEventListener("click", async () => {
-        const confirmed = await showConfirm({
-          title: "Verify completion",
-          message: "Verify completion for this project? This updates the project record.",
-          confirmText: "Verify",
-        });
-        if (confirmed) {
-          await projectsApi.verifyCompletion(button.dataset.projectId);
-          render();
-        }
-      });
-    });
-  };
-
-  if (search && filter) {
-    search.addEventListener("input", filterRows);
-    filter.addEventListener("change", filterRows);
-  }
-
-  bindOfficerActions();
-  if (tableBody) filterRows();
+  document.querySelectorAll("[data-action='approve-rec']").forEach((btn) => {
+    btn.onclick = async () => {
+      const recId = btn.dataset.recId;
+      await recommendationsApi.approveRecommendation(recId);
+      btn.textContent = "✓ Approved by Officer";
+      btn.classList.remove("amber");
+      btn.classList.add("secondary");
+    };
+  });
 }
 
 function bindCitizenEvents() {
   const form = document.querySelector("#citizen-evidence-form");
-  const projectInput = document.querySelector("#project-search");
+  const facilityInput = document.querySelector("#project-search");
   const projectInfo = document.querySelector("#project-info");
   const fileInput = document.querySelector("#evidence-file");
   const preview = document.querySelector("#evidence-preview");
   const description = document.querySelector("#description");
   const count = document.querySelector("#description-count");
-  const reviewPanel = document.querySelector("#review-panel");
   const evidenceError = document.querySelector("#evidence-error");
   const descriptionError = document.querySelector("#description-error");
-  const reviewButton = document.querySelector("[data-action='review']");
   const locateButton = document.querySelector("[data-action='locate']");
+  const issueTypeInput = document.querySelector("#selected-issue-type");
 
   let files = [];
 
-  function selectedProject() {
-    return getProjects().find((project) => project.name === projectInput.value) || null;
+  // Category pill selection
+  document.querySelectorAll(".category-pill").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".category-pill").forEach((p) => p.classList.remove("selected"));
+      pill.classList.add("selected");
+      issueTypeInput.value = pill.dataset.issue;
+    });
+  });
+
+  function selectedFacility() {
+    return state.facilities.find((f) => f.name.toLowerCase() === facilityInput.value.toLowerCase().trim()) || null;
   }
 
-  function renderProjectInfo() {
-    const project = selectedProject();
-    projectInfo.innerHTML = project ? `<strong>${project.name}</strong><span>${project.category} / ${project.location} / ${project.actualProgress}% reported progress</span>` : "Select a project to see its current status.";
+  function renderFacilityInfo() {
+    const fac = selectedFacility();
+    if (fac) {
+      projectInfo.innerHTML = `<strong>${fac.name}</strong><span>${fac.type.toUpperCase()} • ${fac.district} • Status: <b>${fac.officialStatus}</b></span>`;
+      document.querySelector("#latitude").value = fac.lat;
+      document.querySelector("#longitude").value = fac.lng;
+    } else {
+      projectInfo.innerHTML = "Select a facility or let GPS find the nearest registered government asset.";
+    }
   }
 
   function renderPreview() {
-    preview.innerHTML = files.map((file, index) => `<div class="evidence-item"><div class="media-preview">${file.type.startsWith("video/") ? `<video src="${URL.createObjectURL(file)}" controls></video>` : `<img src="${URL.createObjectURL(file)}" alt="Evidence preview">`}</div><span>${file.type.startsWith("video/") ? "Video" : "Photo"}: ${file.name}</span><button type="button" data-remove-file="${index}" title="Remove evidence">Remove</button></div>`).join("");
+    preview.innerHTML = files
+      .map(
+        (file, index) =>
+          `<div class="evidence-item">
+            <div class="media-preview">${file.type.startsWith("video/") ? `<video src="${URL.createObjectURL(file)}" controls></video>` : `<img src="${URL.createObjectURL(file)}" alt="Evidence">`}</div>
+            <span>${file.name}</span>
+            <button type="button" data-remove-file="${index}">Remove</button>
+          </div>`
+      )
+      .join("");
+
     preview.querySelectorAll("[data-remove-file]").forEach((button) => {
       button.addEventListener("click", () => {
         files.splice(Number(button.dataset.removeFile), 1);
@@ -393,24 +1045,13 @@ function bindCitizenEvents() {
   }
 
   function addFiles(fileList) {
-    files = [...files, ...[...fileList].filter((file) => file.type.startsWith("image/") || file.type.startsWith("video/"))].slice(0, 5);
-    evidenceError.hidden = files.length > 0;
+    files = [...files, ...[...fileList].filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"))].slice(0, 5);
+    if (evidenceError) evidenceError.hidden = files.length > 0;
     renderPreview();
   }
 
-  projectInput.addEventListener("input", renderProjectInfo);
+  facilityInput.addEventListener("input", renderFacilityInfo);
   fileInput.addEventListener("change", () => addFiles(fileInput.files));
-
-  const upload = document.querySelector(".upload-active");
-  ["dragenter", "dragover"].forEach((eventName) => upload.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    upload.classList.add("dragging");
-  }));
-  ["dragleave", "drop"].forEach((eventName) => upload.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    upload.classList.remove("dragging");
-    if (eventName === "drop") addFiles(event.dataTransfer.files);
-  }));
 
   description.addEventListener("input", () => {
     count.textContent = description.value.length;
@@ -422,75 +1063,73 @@ function bindCitizenEvents() {
     const value = document.querySelector("#location-value");
 
     if (!navigator.geolocation) {
-      status.textContent = "Manual location required";
-      value.textContent = "Enter latitude and longitude below.";
+      status.textContent = "GPS Unavailable";
       return;
     }
 
-    status.textContent = "Requesting location...";
-    navigator.geolocation.getCurrentPosition((position) => {
-      document.querySelector("#latitude").value = position.coords.latitude.toFixed(6);
-      document.querySelector("#longitude").value = position.coords.longitude.toFixed(6);
-      status.textContent = "Location captured";
-      value.textContent = `${position.coords.latitude.toFixed(4)} N, ${position.coords.longitude.toFixed(4)} E / Accuracy ${Math.round(position.coords.accuracy)} m`;
-    }, () => {
-      status.textContent = "Manual location required";
-      value.textContent = "Permission unavailable. Enter latitude and longitude below.";
-    });
-  });
+    status.textContent = "Detecting GPS...";
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(4));
+        const lng = Number(pos.coords.longitude.toFixed(4));
+        document.querySelector("#latitude").value = lat;
+        document.querySelector("#longitude").value = lng;
+        status.textContent = "GPS Locked";
+        value.textContent = `${lat} N, ${lng} E`;
 
-  function valid() {
-    const hasLocation = document.querySelector("#latitude").value && document.querySelector("#longitude").value;
-    evidenceError.hidden = files.length > 0;
-    descriptionError.hidden = description.value.length >= 20;
-
-    if (!selectedProject()) projectInput.focus();
-    else if (!files.length) fileInput.focus();
-    else if (!hasLocation) document.querySelector("#latitude").focus();
-    else if (description.value.length < 20) description.focus();
-
-    return Boolean(selectedProject() && files.length && hasLocation && description.value.length >= 20);
-  }
-
-  reviewButton.addEventListener("click", () => {
-    if (!valid()) return;
-    const project = selectedProject();
-    reviewPanel.hidden = false;
-    reviewPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    document.querySelector("#review-content").innerHTML = `<div class="review-row"><b>Project</b><span>${project.name}</span></div><div class="review-row"><b>Evidence</b><span>${files.map((file) => file.name).join(", ")}</span></div><div class="review-row"><b>Location</b><span>${document.querySelector("#latitude").value}, ${document.querySelector("#longitude").value}</span></div><div class="review-row"><b>Description</b><span>${description.value}</span></div>`;
+        // Match nearest facility
+        let closest = null;
+        let minDist = Infinity;
+        state.facilities.forEach((f) => {
+          const dist = Math.hypot(f.lat - lat, f.lng - lng);
+          if (dist < minDist) {
+            minDist = dist;
+            closest = f;
+          }
+        });
+        if (closest && minDist < 0.2) {
+          facilityInput.value = closest.name;
+          renderFacilityInfo();
+        }
+      },
+      () => {
+        status.textContent = "Manual location used";
+      }
+    );
   });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!valid()) return;
+    if (description.value.length < 20) {
+      descriptionError.hidden = false;
+      description.focus();
+      return;
+    }
 
-    const submitButton = form.querySelector("button[type='submit']");
-    const submitError = document.querySelector("#submit-error");
-    submitButton.disabled = true;
-    submitButton.textContent = "Submitting...";
-    submitError.hidden = true;
+    const submitBtn = form.querySelector("button[type='submit']");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Analyzing & Submitting...";
 
     try {
-      const project = selectedProject();
-      const reportedProgress = Math.min(100, Math.max(0, project.actualProgress + 5));
+      const fac = selectedFacility();
       const payload = {
-        projectId: project.id,
-        project: project.name,
-        files: files.map((file) => ({ name: file.name, type: file.type })),
-        location: `${document.querySelector("#latitude").value}, ${document.querySelector("#longitude").value}`,
+        facilityId: fac ? fac.id : null,
+        facilityName: fac ? fac.name : facilityInput.value || "Reported Location Asset",
+        issueType: issueTypeInput.value,
+        issueTitle: description.value.slice(0, 45),
+        district: fac ? fac.district : "Andhra Pradesh",
+        lat: Number(document.querySelector("#latitude").value) || 16.5,
+        lng: Number(document.querySelector("#longitude").value) || 80.6,
         description: description.value,
-        reportedProgress,
-        previewUrl: files[0] ? URL.createObjectURL(files[0]) : undefined,
+        reportedBy: "Citizen Ground Contributor",
       };
 
-      latestSubmission = await reportsApi.submitReport(payload);
-      latestAnalysis = await aiApi.analyzeEvidence({ plannedProgress: project.plannedProgress, reportedProgress });
+      latestSubmission = await civicReportsApi.submitReport(payload);
       location.hash = "#/submissions";
-    } catch (error) {
-      console.error(error);
-      submitError.hidden = false;
-      submitButton.disabled = false;
-      submitButton.textContent = "Submit evidence";
+    } catch (err) {
+      console.error(err);
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit Ground Evidence";
     }
   });
 }
@@ -499,25 +1138,11 @@ window.addEventListener("hashchange", render);
 
 async function bootstrap() {
   app.innerHTML = `<div class="page"><p class="muted">Loading CivicSight…</p></div>`;
-  let backendError = null;
+  // Resilient load
   try {
     await projectsApi.loadProjects();
   } catch (err) {
-    backendError = err;
-    console.error("Projects backend unreachable:", err);
-  }
-  try {
-    await analyticsApi.loadAnalytics();
-  } catch (err) {
-    console.error("Analytics backend unavailable:", err);
-  }
-  if (backendError) {
-    app.innerHTML = layout(`<div class="page"><div class="form-error" style="padding:20px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;margin:20px 0;">
-      <strong>Unable to connect to the data backend.</strong>
-      <p style="margin:8px 0 0;color:#666">${backendError.message || "Server unreachable"}</p>
-      <p style="margin:8px 0 0;font-size:12px;color:#888">Please ensure the backend service is running and accessible.</p>
-    </div></div>`, "");
-    return;
+    console.warn("Live projects backend offline, using mock state:", err);
   }
   await render();
 }

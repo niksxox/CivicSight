@@ -23,7 +23,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-civsight_pass}
       POSTGRES_DB: ${POSTGRES_DB:-civsight}
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "${POSTGRES_PORT:-5434}:5432"
     volumes:
       - civsight_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -44,7 +44,7 @@ services:
       AI_CONFIDENCE_THRESHOLD: ${AI_CONFIDENCE_THRESHOLD:-0.65}
       CORS_ORIGIN: ${FRONTEND_URL:-http://localhost:3000}
     ports:
-      - "${DATA_API_PORT:-8000}:8000"
+      - "${DATA_API_PORT:-8002}:8000"
     volumes:
       - ./data-backend/data:/app/data
 
