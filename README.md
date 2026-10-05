@@ -2,6 +2,9 @@
 
 > **CivicSight** combines government and publicly available infrastructure data with citizen-generated ground-level evidence to monitor civic issues, detect underutilized or potentially abandoned public infrastructure, verify resolutions, and recommend where infrastructure should be **repaired**, **repurposed**, or **newly developed**.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/niksxox/CivicSight)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fniksxox%2FCivicSight)
+
 ---
 
 ## 🏛️ How the Whole Thing Fits Together
