@@ -313,7 +313,7 @@ function cloneReports(reports) {
   return reports.map((report) => ({ ...report }));
 }
 
-function makeSvgDataUri(label, from, to) {
+export function makeSvgDataUri(label, from, to) {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="400" height="260" viewBox="0 0 400 260">
       <defs>

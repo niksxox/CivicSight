@@ -81,12 +81,16 @@ export const projectsApi = {
   // Hydrate the in-memory store from the real backend. Falls back to the seed
   // data already in state.projects if the backend is unreachable.
   async loadProjects() {
-    const res = await apiClient.request({ method: "GET", endpoint: "/projects?limit=200" });
-    if (!res.ok) throw new Error(`Projects API failed (${res.status})`);
-    const payload = res.data || {};
-    const items = Array.isArray(payload.items) ? payload.items : Array.isArray(payload) ? payload : [];
-    if (!items.length) throw new Error("Projects API returned no rows");
-    state.projects = items.map(mapProject);
+    try {
+      const res = await apiClient.request({ method: "GET", endpoint: "/projects?limit=200" });
+      if (!res.ok) throw new Error(`Projects API failed (${res.status})`);
+      const payload = res.data || {};
+      const items = Array.isArray(payload.items) ? payload.items : Array.isArray(payload) ? payload : [];
+      if (!items.length) throw new Error("Projects API returned no rows");
+      state.projects = items.map(mapProject);
+    } catch (err) {
+      console.warn("Live projects backend offline, using mock state:", err.message);
+    }
     return state.projects;
   },
 

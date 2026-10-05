@@ -200,3 +200,4 @@ generated_reports/
 .debug/
 debug/
 scratch/
+.vercel

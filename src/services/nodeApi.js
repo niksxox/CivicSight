@@ -7,16 +7,22 @@ export const nodeClient = {
 
   setToken(token) {
     this.token = token;
-    if (token) {
-      localStorage.setItem("civsight_token", token);
-    } else {
-      localStorage.removeItem("civsight_token");
-    }
+    try {
+      if (token) {
+        localStorage.setItem("civsight_token", token);
+      } else {
+        localStorage.removeItem("civsight_token");
+      }
+    } catch {}
   },
 
   getToken() {
     if (this.token) return this.token;
-    this.token = localStorage.getItem("civsight_token");
+    try {
+      this.token = localStorage.getItem("civsight_token");
+    } catch {
+      this.token = null;
+    }
     return this.token;
   },
 

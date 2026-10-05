@@ -6,7 +6,6 @@ import {
   getRecommendationsSummary,
   projectStatusValues,
   addCivicReport,
-  makeSvgDataUri,
 } from "./services/mockState.js";
 import {
   projectsApi,
