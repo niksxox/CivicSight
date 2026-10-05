@@ -1,8 +1,11 @@
 # CivicSight — Civic Infrastructure Intelligence Platform
 
+> 🚀 **Live Production Website**: [**https://civicsight.vercel.app**](https://civicsight.vercel.app)
+>
 > **CivicSight** combines government and publicly available infrastructure data with citizen-generated ground-level evidence to monitor civic issues, detect underutilized or potentially abandoned public infrastructure, verify resolutions, and recommend where infrastructure should be **repaired**, **repurposed**, or **newly developed**.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/niksxox/CivicSight)
+[![Live Website](https://img.shields.io/badge/Live%20Website-civicsight.vercel.app-success?style=for-the-badge&logo=vercel)](https://civicsight.vercel.app)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-niksxox%2FCivicSight-blue?style=for-the-badge&logo=github)](https://github.com/niksxox/CivicSight)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fniksxox%2FCivicSight)
 
 ---
