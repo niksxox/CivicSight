@@ -43,4 +43,74 @@ export const facilitiesApi = {
     }
     return fac;
   },
+
+  /**
+   * Fetches real-world live civic facilities from OpenStreetMap Overpass API
+   * for Andhra Pradesh / current map bounding box.
+   */
+  async fetchLiveOsmFacilities(bbox = [15.5, 78.0, 18.0, 83.5]) {
+    try {
+      const [south, west, north, east] = bbox;
+      const overpassQuery = `[out:json][timeout:15];(
+        node["amenity"="toilets"](${south},${west},${north},${east});
+        node["amenity"="drinking_water"](${south},${west},${north},${east});
+        node["amenity"="school"](${south},${west},${north},${east});
+        node["amenity"="clinic"](${south},${west},${north},${east});
+        node["amenity"="hospital"](${south},${west},${north},${east});
+      );out 30;`;
+
+      const res = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        body: overpassQuery,
+      });
+
+      if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
+      const data = await res.json();
+      if (!data.elements || !data.elements.length) return [];
+
+      const newLiveFacilities = data.elements
+        .filter((el) => el.lat && el.lon)
+        .map((el) => {
+          const amenity = el.tags?.amenity || "facility";
+          let type = "community";
+          if (amenity === "toilets") type = "toilet";
+          else if (amenity === "drinking_water") type = "water";
+          else if (amenity === "school") type = "school";
+          else if (amenity === "hospital" || amenity === "clinic") type = "health";
+
+          const name = el.tags?.name || `Public ${type.charAt(0).toUpperCase() + type.slice(1)} (OSM #${el.id})`;
+          const district = el.tags?.["addr:district"] || el.tags?.["addr:city"] || "Andhra Pradesh";
+
+          return {
+            id: `osm-${el.id}`,
+            name,
+            type,
+            district,
+            lat: el.lat,
+            lng: el.lon,
+            officialStatus: "OPERATIONAL",
+            abandonmentScore: 10,
+            populationCatchment: 8500,
+            establishedYear: 2020,
+            lastInspection: "Live OSM Feed",
+            conditionNotes: `Live geographic asset from OpenStreetMap. Tags: ${Object.keys(el.tags || {}).join(", ")}`,
+            citizenReportCount: 0,
+            recommendedAction: "MAINTAIN",
+          };
+        });
+
+      // Merge into state avoiding duplicates
+      newLiveFacilities.forEach((item) => {
+        if (!state.facilities.some((f) => f.id === item.id)) {
+          state.facilities.push(item);
+        }
+      });
+
+      return newLiveFacilities;
+    } catch (err) {
+      console.warn("Live OSM Overpass fetch fallback:", err);
+      return [];
+    }
+  },
 };
+

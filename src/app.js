@@ -270,11 +270,28 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
     };
   }
 
+  // Live OpenStreetMap Overpass live data fetcher button
+  const liveOsmBtn = document.querySelector("#btn-fetch-live-osm");
+  if (liveOsmBtn) {
+    liveOsmBtn.onclick = async () => {
+      liveOsmBtn.disabled = true;
+      liveOsmBtn.textContent = "⏳ Fetching Live OSM Nodes...";
+      const newItems = await facilitiesApi.fetchLiveOsmFacilities();
+      liveOsmBtn.textContent = `✓ Added ${newItems.length} Live Assets`;
+      setTimeout(() => {
+        liveOsmBtn.disabled = false;
+        liveOsmBtn.textContent = "⚡ Stream Live OSM Data";
+      }, 3000);
+      mountLeafletMap(containerId, activeFilter);
+    };
+  }
+
   // Filter buttons
   document.querySelectorAll("[data-map-filter]").forEach((btn) => {
     btn.onclick = () => {
       document.querySelectorAll("[data-map-filter]").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
+      activeFilter = btn.dataset.mapFilter;
       mountLeafletMap(containerId, btn.dataset.mapFilter);
     };
   });
@@ -354,6 +371,7 @@ function dashboardView() {
             <button data-map-filter="toilet">Public Toilets</button>
             <button data-map-filter="water">Water Plants</button>
             <button data-map-filter="health">Health Clinics</button>
+            <button id="btn-fetch-live-osm" style="background:#0284c7;color:white;border-color:#0284c7;font-weight:700;">⚡ Stream Live OSM Data</button>
           </div>
           <div class="map-stat-badges">
             <span>🏫 ${state.facilities.filter((f) => f.type === "school").length} Schools</span>
@@ -450,6 +468,7 @@ function mapView() {
             <button data-map-filter="toilet">Public Toilets</button>
             <button data-map-filter="water">Water Assets</button>
             <button data-map-filter="health">Health Centers</button>
+            <button id="btn-fetch-live-osm" style="background:#0284c7;color:white;border-color:#0284c7;font-weight:700;">⚡ Stream Live OSM Data</button>
           </div>
         </div>
         <div id="gis-leaflet-map" class="leaflet-map-container" style="height:540px;"></div>
