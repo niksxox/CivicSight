@@ -96,7 +96,7 @@ services:
   - type: web
     name: ai-service
     runtime: docker
-    plan: 1c-2g
+    plan: free
     region: singapore
     dockerfilePath: ./Dockerfile.ai
     dockerContext: .
