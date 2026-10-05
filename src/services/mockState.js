@@ -290,7 +290,11 @@ export const state = {
   facilities: seedFacilities.map((f) => ({ ...f })),
   civicReports: seedCivicReports.map((r) => ({ ...r })),
   recommendations: seedRecommendations.map((r) => ({ ...r })),
-  resolutions: seedResolutionPairs.map((r) => ({ ...r })),
+  resolutions: seedResolutionPairs.map((r) => ({
+    ...r,
+    beforeImage: r.beforeImage || makeSvgDataUri(`BEFORE: ${r.facilityName.slice(0, 22)}`, "#7f1d1d", "#450a0a"),
+    afterImage: r.afterImage || makeSvgDataUri(`AFTER: ${r.facilityName.slice(0, 22)}`, "#14532d", "#052e16"),
+  })),
   demographics: [...districtDemographics],
   activityFeed: [
     { text: "AI generated new REPURPOSE recommendation for ZP School Pendurthi", time: "2 mins ago" },

@@ -46,18 +46,22 @@ export const facilitiesApi = {
 
   /**
    * Fetches real-world live civic facilities from OpenStreetMap Overpass API
-   * for Andhra Pradesh / current map bounding box.
+   * for any state or current viewport in India.
    */
-  async fetchLiveOsmFacilities(bbox = [15.5, 78.0, 18.0, 83.5]) {
+  async fetchLiveOsmFacilities(bbox = null, regionName = "India") {
     try {
-      const [south, west, north, east] = bbox;
+      // Default to Delhi NCR / Central India if no bbox provided
+      const [south, west, north, east] = Array.isArray(bbox) && bbox.length === 4
+        ? bbox
+        : [28.45, 76.95, 28.85, 77.35];
+
       const overpassQuery = `[out:json][timeout:15];(
         node["amenity"="toilets"](${south},${west},${north},${east});
         node["amenity"="drinking_water"](${south},${west},${north},${east});
         node["amenity"="school"](${south},${west},${north},${east});
         node["amenity"="clinic"](${south},${west},${north},${east});
         node["amenity"="hospital"](${south},${west},${north},${east});
-      );out 30;`;
+      );out 40;`;
 
       const res = await fetch("https://overpass-api.de/api/interpreter", {
         method: "POST",
@@ -79,13 +83,14 @@ export const facilitiesApi = {
           else if (amenity === "hospital" || amenity === "clinic") type = "health";
 
           const name = el.tags?.name || `Public ${type.charAt(0).toUpperCase() + type.slice(1)} (OSM #${el.id})`;
-          const district = el.tags?.["addr:district"] || el.tags?.["addr:city"] || "Andhra Pradesh";
+          const district = el.tags?.["addr:district"] || el.tags?.["addr:city"] || regionName || "India";
 
           return {
             id: `osm-${el.id}`,
             name,
             type,
             district,
+            state: el.tags?.["addr:state"] || regionName,
             lat: el.lat,
             lng: el.lon,
             officialStatus: "OPERATIONAL",
@@ -93,7 +98,7 @@ export const facilitiesApi = {
             populationCatchment: 8500,
             establishedYear: 2020,
             lastInspection: "Live OSM Feed",
-            conditionNotes: `Live geographic asset from OpenStreetMap. Tags: ${Object.keys(el.tags || {}).join(", ")}`,
+            conditionNotes: `Live geographic asset from OpenStreetMap (${district}). Amenity: ${amenity}`,
             citizenReportCount: 0,
             recommendedAction: "MAINTAIN",
           };

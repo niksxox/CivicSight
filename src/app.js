@@ -6,6 +6,7 @@ import {
   getRecommendationsSummary,
   projectStatusValues,
   addCivicReport,
+  makeSvgDataUri,
 } from "./services/mockState.js";
 import {
   projectsApi,
@@ -16,16 +17,37 @@ import {
   facilitiesApi,
   recommendationsApi,
   civicReportsApi,
+  dataGovApi,
+  DATA_GOV_CATALOGS,
+  authApi,
+  GOV_ROLES,
+  DEMO_CREDENTIALS,
 } from "./services/index.js";
 
 const app = document.querySelector("#app");
-let role = "officer";
+let currentUser = authApi.getCurrentUser();
+let role = authApi.isGovernment() ? "officer" : "citizen";
 let latestSubmission = state.reports[0] || null;
 let latestAnalysis = null;
 let activeMapInstance = null;
 let currentBasemap = "streets"; // "streets" | "satellite"
 let activeFilter = "all";
 let activeRecFilter = "all";
+let activeRegion = "all";
+
+export const INDIA_REGIONS = [
+  { id: "all", label: "All India 🇮🇳", coords: [21.7679, 78.8718], zoom: 5 },
+  { id: "delhi", label: "Delhi NCR", coords: [28.6139, 77.2090], zoom: 11 },
+  { id: "maharashtra", label: "Maharashtra (Mumbai)", coords: [19.0760, 72.8777], zoom: 11 },
+  { id: "karnataka", label: "Karnataka (Bengaluru)", coords: [12.9716, 77.5946], zoom: 11 },
+  { id: "tamilnadu", label: "Tamil Nadu (Chennai)", coords: [13.0827, 80.2707], zoom: 11 },
+  { id: "telangana", label: "Telangana (Hyderabad)", coords: [17.3850, 78.4867], zoom: 11 },
+  { id: "up", label: "Uttar Pradesh (Varanasi)", coords: [25.3176, 82.9739], zoom: 11 },
+  { id: "bengal", label: "West Bengal (Kolkata)", coords: [22.5726, 88.3639], zoom: 11 },
+  { id: "gujarat", label: "Gujarat (Ahmedabad)", coords: [23.0225, 72.5714], zoom: 11 },
+  { id: "rajasthan", label: "Rajasthan (Jaipur)", coords: [26.9124, 75.7873], zoom: 11 },
+  { id: "ap", label: "Andhra Pradesh", coords: [16.5062, 80.6480], zoom: 8 },
+];
 
 const icons = {
   dashboard: "🎛️",
@@ -37,6 +59,8 @@ const icons = {
   verify: "✅",
   abandonment: "🏚️",
   recommendations: "💡",
+  datagov: "🇮🇳",
+  login: "🔐",
 };
 
 const officerNav = [
@@ -44,9 +68,10 @@ const officerNav = [
   ["GIS satellite map", "map", "#/map"],
   ["Abandonment detector", "abandonment", "#/abandonment"],
   ["AI recommendations", "recommendations", "#/recommendations"],
+  ["Data.gov.in Real-Time", "datagov", "#/data-gov"],
   ["Resolution studio", "verify", "#/resolutions"],
   ["Capital projects", "projects", "#/projects"],
-  ["Demographics & analytics", "analytics", "#/analytics"],
+  ["Demographics & indices", "analytics", "#/analytics"],
 ];
 
 const citizenNav = [
@@ -55,6 +80,7 @@ const citizenNav = [
   ["AI recommendations", "recommendations", "#/recommendations"],
   ["Verified resolutions", "verify", "#/resolutions"],
   ["My submissions", "evidence", "#/submissions"],
+  ["Official login", "login", "#/login"],
 ];
 
 const getProjects = () => state.projects;
@@ -87,14 +113,43 @@ function riskBadge(risk = "Low") {
 }
 
 function layout(content, currentRoute) {
-  const nav = role === "officer" ? officerNav : citizenNav;
+  currentUser = authApi.getCurrentUser();
+  const isGov = authApi.isGovernment();
+  const nav = isGov && role === "officer" ? officerNav : citizenNav;
+
   return `<div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="#/dashboard"><span class="brand-mark"><span>+</span></span><span><strong>CivicSight</strong><small>Civic Intelligence</small></span></a>
+      <a class="brand" href="${isGov ? "#/dashboard" : "#/report"}">
+        <span class="brand-mark"><span>+</span></span>
+        <span><strong>CivicSight</strong><small>National Civic Intel</small></span>
+      </a>
+
+      <!-- Profile & Hierarchy Badge -->
+      ${
+        isGov
+          ? `<div class="user-profile-badge" style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:9px 12px;margin:8px 12px;color:white;">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span class="badge ${currentUser.badgeColor || "green"}" style="font-size:9px;padding:2px 6px;">${currentUser.level}</span>
+                <button id="btn-sidebar-signout" style="background:transparent;border:none;color:#94a3b8;font-size:10px;cursor:pointer;padding:0;" title="Sign Out">Sign Out ↗</button>
+              </div>
+              <div style="font-size:12px;font-weight:700;margin-top:5px;color:#f8fafc;">${currentUser.name}</div>
+              <div style="font-size:10px;color:#94a3b8;line-height:1.3;margin-top:2px;">${currentUser.designation}</div>
+              <div style="font-size:9px;color:#38bdf8;margin-top:4px;">Limits: ${currentUser.approvalLimit}</div>
+            </div>`
+          : `<div class="user-profile-badge" style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:9px 12px;margin:8px 12px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span class="badge" style="font-size:9px;background:#e2e8f0;color:#334155;padding:2px 6px;">Public Citizen</span>
+                <a href="#/login" style="font-size:11px;color:#0284c7;font-weight:700;text-decoration:none;">Officer Login →</a>
+              </div>
+              <div style="font-size:10px;color:#64748b;margin-top:4px;line-height:1.4;">Submit ground evidence & track civic issues. Tenders require official credentials.</div>
+            </div>`
+      }
+
       <div class="role-switcher">
-        <button class="${role === "citizen" ? "active" : ""}" data-role="citizen">Citizen portal</button>
-        <button class="${role === "officer" ? "active" : ""}" data-role="officer">Government</button>
+        <button class="${!isGov || role === "citizen" ? "active" : ""}" data-role="citizen">Citizen portal</button>
+        <button class="${isGov && role === "officer" ? "active" : ""}" data-role="officer">${isGov ? "Government" : "Gov Login 🔒"}</button>
       </div>
+
       <div class="nav-label">Workspace</div>
       <nav class="nav">${nav
         .map(
@@ -103,21 +158,47 @@ function layout(content, currentRoute) {
         )
         .join("")}</nav>
       <div class="sidebar-footer">
-        <strong>${role === "officer" ? "District Planning & Works" : "Civic Action Platform"}</strong>
-        ${role === "officer" ? "Cross-referencing gov & citizen data" : "Ground reports empower community action"}
+        <strong>${isGov ? "Government Administration" : "Citizen Action Network"}</strong>
+        ${isGov ? `${currentUser.department}` : "Community reporting across Indian states"}
       </div>
     </aside>
     <main class="main">
       <header class="topbar">
-        <div class="breadcrumb">CivicSight / <b>${role === "officer" ? "Government command center" : "Citizen ground reporter"}</b></div>
+        <div class="breadcrumb">CivicSight / <b>${isGov ? `Official Command Center (${currentUser.level})` : "Public Citizen Contributor"}</b></div>
         <div class="top-actions">
-          <button title="Notifications">🔔</button>
-          <span class="avatar">${role === "officer" ? "GOV" : "CIT"}</span>
+          ${isGov ? `<span class="badge ${currentUser.badgeColor || "green"}" style="font-size:11px;">${currentUser.level}</span>` : `<span class="badge" style="font-size:11px;">CITIZEN</span>`}
+          <span class="avatar">${isGov ? "GOV" : "CIT"}</span>
         </div>
       </header>
       ${content}
     </main>
   </div>`;
+}
+
+function unauthorizedView(requestedRoute) {
+  return layout(
+    `<div class="page">
+      <div class="panel" style="max-width:680px;margin:40px auto;text-align:center;padding:40px 24px;">
+        <div style="font-size:48px;margin-bottom:12px;">🔒</div>
+        <div class="eyebrow" style="color:#dc2626;font-weight:700;">Restricted Government Access</div>
+        <h1 style="font-size:24px;margin:8px 0 12px;color:#0f172a;">Official Authorization Required</h1>
+        <p class="subhead" style="margin-bottom:20px;font-size:14px;color:#475569;line-height:1.6;">
+          You are currently in <b>Citizen Contributor Mode</b>. The requested section (<code>${requestedRoute}</code>) contains confidential public asset expenditure registers, internal abandonment audits, and inter-departmental sanction workflows accessible exclusively to authorized Government Authorities.
+        </p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;text-align:left;margin-bottom:24px;font-size:12px;color:#334155;line-height:1.6;">
+          <b style="color:#0f172a;display:block;margin-bottom:6px;">Restricted Officer Hierarchies:</b>
+          <div>• <b>District Officer (DUDA):</b> Local asset repairs & field verification sign-offs</div>
+          <div>• <b>State Administrator (MA&UD):</b> State-wide facility repurposing & budget reallocations</div>
+          <div>• <b>National Director (MoHUA):</b> New capital infrastructure sanctions & real-time Data.gov.in API pipelines</div>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:center;">
+          <a class="button amber" href="#/login">Login with Government Credentials</a>
+          <a class="button secondary" href="#/report">Return to Citizen Portal</a>
+        </div>
+      </div>
+    </div>`,
+    ""
+  );
 }
 
 /* ==========================================================================
@@ -141,8 +222,8 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
     activeMapInstance = null;
   }
 
-  // AP center
-  const map = L.map(containerId).setView([16.4, 80.5], 8);
+  // Pan-India default center
+  const map = L.map(containerId).setView([21.7679, 78.8718], 5);
   activeMapInstance = map;
 
   const streetLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -167,7 +248,7 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
   // Markers
   const bounds = [];
 
-  // 1. Facilities
+  // 1. Facilities across India
   state.facilities.forEach((fac) => {
     if (filterType !== "all" && filterType !== fac.type) return;
     bounds.push([fac.lat, fac.lng]);
@@ -200,8 +281,8 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
     });
 
     const popupContent = `
-      <div style="font-family:sans-serif;min-width:220px;">
-        <span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">${fac.district} • ${fac.type}</span>
+      <div style="font-family:sans-serif;min-width:230px;">
+        <span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">${fac.district}${fac.state ? ` (${fac.state})` : ""} • ${fac.type}</span>
         <h4 style="margin:4px 0 6px;font-size:14px;color:#0f172a;">${fac.name}</h4>
         <div style="margin-bottom:8px;">
           ${badge(fac.officialStatus)}
@@ -245,7 +326,7 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
     }
   });
 
-  if (bounds.length > 0) {
+  if (activeRegion === "all" && bounds.length > 0) {
     map.fitBounds(bounds, { padding: [30, 30] });
   }
 
@@ -269,14 +350,35 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
     };
   }
 
-  // Live OpenStreetMap Overpass live data fetcher button
+  // Region switcher
+  document.querySelectorAll("[data-region-jump]").forEach((btn) => {
+    btn.onclick = () => {
+      document.querySelectorAll("[data-region-jump]").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeRegion = btn.dataset.regionJump;
+      const reg = INDIA_REGIONS.find((r) => r.id === activeRegion);
+      if (reg) {
+        if (reg.id === "all" && bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [30, 30] });
+        } else {
+          map.flyTo(reg.coords, reg.zoom, { duration: 1.2 });
+        }
+      }
+    };
+  });
+
+  // Dynamic OpenStreetMap Overpass live data fetcher button
   const liveOsmBtn = document.querySelector("#btn-fetch-live-osm");
   if (liveOsmBtn) {
     liveOsmBtn.onclick = async () => {
       liveOsmBtn.disabled = true;
       liveOsmBtn.textContent = "⏳ Fetching Live OSM Nodes...";
-      const newItems = await facilitiesApi.fetchLiveOsmFacilities();
-      liveOsmBtn.textContent = `✓ Added ${newItems.length} Live Assets`;
+      const b = map.getBounds();
+      const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+      const activeRegObj = INDIA_REGIONS.find((r) => r.id === activeRegion);
+      const regName = activeRegObj ? activeRegObj.label.replace(" 🇮🇳", "") : "India";
+      const newItems = await facilitiesApi.fetchLiveOsmFacilities(bbox, regName);
+      liveOsmBtn.textContent = `✓ Added ${newItems.length} Live Assets (${regName})`;
       setTimeout(() => {
         liveOsmBtn.disabled = false;
         liveOsmBtn.textContent = "⚡ Stream Live OSM Data";
@@ -310,9 +412,9 @@ function dashboardView() {
   return layout(
     `<div class="page dashboard-page">
       ${pageHeading(
-        "Civic Infrastructure Intelligence",
-        "Command Center & Delivery Monitor",
-        "Combining government public assets and open demographic data with citizen-contributed ground evidence to detect abandonment and recommend actions.",
+        "National Civic Infrastructure Intelligence",
+        "Command Center & Delivery Monitor (All India)",
+        "Combining government public asset registers and census demographics with citizen ground evidence to detect abandonment and recommend actions across Indian States.",
         `<div style="display:flex;gap:8px;">
           <a class="button amber" href="#/report">+ Report Ground Issue</a>
           <a class="button" href="#/recommendations">View AI Recommendations</a>
@@ -355,8 +457,8 @@ function dashboardView() {
       <section class="panel" style="margin-bottom:20px;">
         <div class="panel-heading">
           <div>
-            <h2>Geospatial Infrastructure & Alert Map</h2>
-            <span class="muted">Interactive GIS layer showing government assets, citizen reports, and satellite imagery</span>
+            <h2>Geospatial Infrastructure & Alert Map (Pan-India)</h2>
+            <span class="muted">Interactive GIS layer showing government assets, citizen reports, and satellite imagery across Indian States</span>
           </div>
           <div class="map-layer-toggles">
             <button id="btn-basemap-streets" class="${currentBasemap === "streets" ? "active" : ""}">Vector Streets</button>
@@ -374,10 +476,16 @@ function dashboardView() {
           </div>
           <div class="map-stat-badges">
             <span>🏫 ${state.facilities.filter((f) => f.type === "school").length} Schools</span>
-            <span>🚾 ${state.facilities.filter((f) => f.type === "toilet").length} Public Toilets</span>
-            <span>💧 ${state.facilities.filter((f) => f.type === "water").length} Water Points</span>
-            <span>⚠️ ${state.civicReports.length} Citizen Alerts</span>
+            <span>🚾 ${state.facilities.filter((f) => f.type === "toilet").length} Toilets</span>
+            <span>💧 ${state.facilities.filter((f) => f.type === "water").length} Water</span>
+            <span>⚠️ ${state.civicReports.length} Alerts</span>
           </div>
+        </div>
+        <div class="map-layer-toggles region-selector-strip" style="margin: 8px 14px 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+          <span style="font-size:11px;font-weight:700;color:#64748b;margin-right:2px;">📍 State / City:</span>
+          ${INDIA_REGIONS.map(
+            (reg) => `<button data-region-jump="${reg.id}" class="${activeRegion === reg.id ? "active" : ""}" style="font-size:11px;padding:3px 8px;">${reg.label}</button>`
+          ).join("")}
         </div>
         <div id="gis-leaflet-map" class="leaflet-map-container"></div>
       </section>
@@ -395,7 +503,7 @@ function dashboardView() {
             <thead>
               <tr>
                 <th>Facility</th>
-                <th>District</th>
+                <th>District & State</th>
                 <th>Status</th>
                 <th>Risk Score</th>
                 <th>Recommended Action</th>
@@ -406,7 +514,7 @@ function dashboardView() {
                 .map(
                   (f) => `<tr>
                     <td><b>${f.name}</b><br><span class="muted">${f.type} • Catchment: ${f.populationCatchment?.toLocaleString()}</span></td>
-                    <td>${f.district}</td>
+                    <td>${f.district}${f.state ? `<br><small style="color:#0d9488;">${f.state}</small>` : ""}</td>
                     <td>${badge(f.officialStatus)}</td>
                     <td>${abandonmentBadge(f.abandonmentScore)}</td>
                     <td><span class="rec-type-badge badge-${(f.recommendedAction || "repair").toLowerCase()}">${f.recommendedAction || "MAINTAIN"}</span></td>
@@ -421,7 +529,7 @@ function dashboardView() {
           <div class="panel-heading">
             <div>
               <h2>Recent Ground Evidence Stream</h2>
-              <span class="muted">Live citizen uploads & AI validation</span>
+              <span class="muted">Live citizen uploads & AI validation across India</span>
             </div>
             <a class="text-link" href="#/report">Submit report</a>
           </div>
@@ -470,17 +578,23 @@ function mapView() {
             <button id="btn-fetch-live-osm" style="background:#0284c7;color:white;border-color:#0284c7;font-weight:700;">⚡ Stream Live OSM Data</button>
           </div>
         </div>
+        <div class="map-layer-toggles region-selector-strip" style="margin: 8px 14px 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+          <span style="font-size:11px;font-weight:700;color:#64748b;margin-right:2px;">📍 Jump to Region:</span>
+          ${INDIA_REGIONS.map(
+            (reg) => `<button data-region-jump="${reg.id}" class="${activeRegion === reg.id ? "active" : ""}" style="font-size:11px;padding:3px 8px;">${reg.label}</button>`
+          ).join("")}
+        </div>
         <div id="gis-leaflet-map" class="leaflet-map-container" style="height:540px;"></div>
       </section>
 
       <div class="content-grid" style="margin-top:20px;">
         <section class="panel">
-          <div class="panel-heading"><h2>District Infrastructure Coverage</h2></div>
+          <div class="panel-heading"><h2>State & District Infrastructure Coverage</h2></div>
           ${state.demographics
             .map(
               (d) => `<div class="summary-row" style="padding:10px 0;border-bottom:1px solid #edf1f4;">
                 <div>
-                  <b>${d.district}</b>
+                  <b>${d.district}</b> <span style="font-size:11px;color:#0d9488;font-weight:600;">(${d.state || "India"})</span>
                   <span class="muted" style="display:block;font-size:11px;">Population: ${d.population.toLocaleString()} • Density: ${d.density}/km²</span>
                 </div>
                 <div style="text-align:right;">
@@ -493,15 +607,18 @@ function mapView() {
         </section>
 
         <section class="panel">
-          <div class="panel-heading"><h2>Identified Deficit Hotspots</h2></div>
+          <div class="panel-heading"><h2>National Deficit Hotspots</h2></div>
           <p class="muted" style="font-size:13px;line-height:1.5;">
-            Geospatial catchment analysis cross-referencing population density against functional public facilities has identified the following high-priority infrastructure voids:
+            Geospatial catchment analysis cross-referencing population density against functional public facilities has identified the following high-priority infrastructure voids across India:
           </p>
           <ul style="padding-left:18px;font-size:12px;color:#334155;line-height:1.7;">
-            <li><b>Guntur West Slum Zone:</b> 13,800 residents with zero functional toilets within 1.8km radius.</li>
-            <li><b>Tirupati Outer Ring:</b> 7,500 residents lacking clean piped drinking water.</li>
-            <li><b>Visakhapatnam Anandapuram:</b> Healthcare deficit zone requiring new Primary Health Center.</li>
-            <li><b>Vijayawada Sector 3:</b> Underutilized school with 8 vacant classrooms suitable for digital library.</li>
+            <li><b>Mumbai Dharavi Sector 5 (Maharashtra):</b> 28,000 residents living beyond 800m of functional sanitation.</li>
+            <li><b>Varanasi Adampur Slum Cluster (UP):</b> 14,000 handloom artisans lacking clean piped RO drinking water.</li>
+            <li><b>Central Delhi Narela Sub-city (Delhi):</b> Vacant 10-room school suitable for Maternal & Child Health conversion.</li>
+            <li><b>Bengaluru Peenya 2nd Stage (Karnataka):</b> Garment industrial cluster needing worker creche & health sub-center.</li>
+            <li><b>Chennai Vyasarpadi North (Tamil Nadu):</b> Collapsed drainage requiring elevated eco-sanitation rebuild.</li>
+            <li><b>Kolkata Topsia Canal Belt (West Bengal):</b> Underutilized school suitable for immunization clinic.</li>
+            <li><b>Guntur & Vijayawada Hubs (Andhra Pradesh):</b> Dense urban market habitations targeted for RO water ATM overhaul.</li>
           </ul>
         </section>
       </div>
@@ -516,8 +633,8 @@ function abandonmentView() {
     `<div class="page">
       ${pageHeading(
         "Infrastructure Underutilization & Abandonment",
-        "Public Asset Condition & Abandonment Detector",
-        "Detects facilities officially recorded as active that are actually abandoned, locked, or unmaintained based on citizen ground evidence.",
+        "Pan-India Public Asset Condition & Abandonment Detector",
+        "Detects facilities officially recorded as active that are actually abandoned, locked, or unmaintained based on citizen ground evidence across Indian States.",
         `<a class="button amber" href="#/report">+ Report Abandoned Facility</a>`
       )}
 
@@ -530,15 +647,15 @@ function abandonmentView() {
 
       <section class="panel">
         <div class="panel-heading">
-          <h2>Monitored Public Facilities Register</h2>
-          <span class="muted">${facilities.length} government assets evaluated</span>
+          <h2>Monitored Public Facilities Register (All India)</h2>
+          <span class="muted">${facilities.length} government assets evaluated across States</span>
         </div>
         <div class="table-wrap">
           <table class="data-table">
             <thead>
               <tr>
                 <th>Facility Name</th>
-                <th>Type & District</th>
+                <th>Type, District & State</th>
                 <th>Official Status</th>
                 <th>Risk Score</th>
                 <th>Ground Observations & Citizen Feedback</th>
@@ -550,7 +667,7 @@ function abandonmentView() {
                 .map(
                   (f) => `<tr>
                     <td><b>${f.name}</b><br><span class="muted">Est. ${f.establishedYear} • Last insp: ${f.lastInspection}</span></td>
-                    <td>${f.type.toUpperCase()}<br><span class="muted">${f.district}</span></td>
+                    <td>${f.type.toUpperCase()}<br><span class="muted">${f.district}${f.state ? ` (${f.state})` : ""}</span></td>
                     <td>${badge(f.officialStatus)}</td>
                     <td>${abandonmentBadge(f.abandonmentScore)}</td>
                     <td style="max-width:320px;font-size:12px;color:#334155;">
@@ -573,11 +690,120 @@ function abandonmentView() {
   );
 }
 
+function dataGovView() {
+  const catalogs = dataGovApi.getCatalogs();
+
+  return layout(
+    `<div class="page">
+      ${pageHeading(
+        "Open Government Data (OGD) Platform",
+        "Data.gov.in National Real-Time Telemetry & Datasets",
+        "Real-time pipeline ingestion directly from official Open Government Data catalogs: Ministry of Jal Shakti (JJM), MoHUA (SBM-U 2.0), Ministry of Rural Development (PMGSY), and Ministry of Education (UDISE+).",
+        `<div style="display:flex;gap:8px;">
+          <button id="btn-sync-data-gov" class="button" style="background:#0284c7;border-color:#0284c7;color:white;font-weight:700;">⚡ Sync Data.gov.in Live APIs</button>
+        </div>`
+      )}
+
+      <!-- Key National Indicators Streamed from Data.gov.in -->
+      <div class="stat-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
+        <div class="stat status-stat stat-on-track">
+          <span class="stat-label">JJM Tap Water Coverage</span>
+          <div class="stat-value" id="dg-jjm-cov">${catalogs[0].metrics.nationalCoveragePct}%</div>
+          <span class="stat-note">${catalogs[0].metrics.totalRuralHouseholdsWithTap} rural households (Jal Shakti)</span>
+        </div>
+        <div class="stat status-stat stat-completed">
+          <span class="stat-label">SBM-U Public Toilets</span>
+          <div class="stat-value" id="dg-sbm-toilets">${catalogs[1].metrics.geotaggedPublicToilets}</div>
+          <span class="stat-note">Geotagged public sanitation units (MoHUA)</span>
+        </div>
+        <div class="stat status-stat stat-delayed">
+          <span class="stat-label">PMGSY Roads Completed</span>
+          <div class="stat-value">7.42 L km</div>
+          <span class="stat-note">1,76,490 habitations connected (MoRD)</span>
+        </div>
+        <div class="stat status-stat stat-total">
+          <span class="stat-label">Schools with Girl Toilets</span>
+          <div class="stat-value">97.5%</div>
+          <span class="stat-note">UDISE+ National School Census (MoE)</span>
+        </div>
+      </div>
+
+      <!-- Real-Time Discrepancy Engine: Official Data vs. Ground Citizen Reports -->
+      <section class="panel" style="margin-bottom:24px;border-left:4px solid #f59e0b;">
+        <div class="panel-heading">
+          <div>
+            <h2>Data.gov.in vs. Citizen Ground-Truth Cross-Reference</h2>
+            <span class="muted">AI engine cross-references official 100% completion claims against geotagged citizen abandonment alerts</span>
+          </div>
+          <span class="badge amber">Real-Time Validation</span>
+        </div>
+        <div style="font-size:13px;color:#334155;line-height:1.6;margin-bottom:12px;">
+          While <b>data.gov.in</b> records register <b>${catalogs[0].metrics.totalRuralHouseholdsWithTap}</b> water taps and <b>${catalogs[1].metrics.geotaggedPublicToilets}</b> sanitation units, CivicSight's ground stream has flagged <b>${state.facilities.filter((f) => f.officialStatus === "ABANDONED" || f.officialStatus === "DEFUNCT").length} defunct or abandoned public assets</b> across monitored urban slums and peri-urban perimeters with dry pipes, broken pumps, or padlocks.
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <a class="button amber" href="#/abandonment">View Abandonment Audit Detector →</a>
+          <a class="button secondary" href="#/recommendations">View AI Rectification Matrix →</a>
+        </div>
+      </section>
+
+      <!-- Integrated Official Catalogs from Data.gov.in -->
+      <div class="content-grid" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+        ${catalogs.map(
+          (cat) => `
+          <section class="panel">
+            <div class="panel-heading" style="align-items:flex-start;">
+              <div>
+                <span style="font-size:10px;font-weight:700;color:#0284c7;text-transform:uppercase;">${cat.ministry}</span>
+                <h3 style="margin:4px 0 2px;font-size:15px;color:#0f172a;">${cat.title}</h3>
+                <span class="muted" style="font-size:11px;">Cadence: <b>${cat.updateFrequency}</b> • Last Ingestion: <span class="dg-last-sync">${cat.lastSynced.slice(0, 19).replace("T", " ")}</span></span>
+              </div>
+            </div>
+
+            <div style="background:#f8fafc;padding:10px 12px;border-radius:6px;margin-bottom:12px;font-size:12px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span class="muted">Official Portal Resource:</span>
+                <a href="${cat.portalUrl}" target="_blank" rel="noopener" style="color:#0284c7;font-weight:600;font-size:11px;">data.gov.in Catalog ↗</a>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span class="muted">Live API WebService:</span>
+                <code style="font-size:10px;color:#475569;">${cat.sourceApi.slice(0, 38)}...</code>
+              </div>
+            </div>
+
+            <table class="data-table" style="font-size:12px;">
+              <thead>
+                <tr>
+                  <th>State / Region</th>
+                  <th>Key Official Metric</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(cat.stateBreakdown || []).slice(0, 5).map(
+                  (st) => `
+                  <tr>
+                    <td><b>${st.state}</b></td>
+                    <td>${st.coveragePct ? `${st.coveragePct}% Tap Coverage` : st.functionalPct ? `${st.functionalPct}% Functional (${st.totalToilets} units)` : st.completedKm ? `${st.completedKm.toLocaleString()} km` : `${st.electricityPct}% Electricity`}</td>
+                    <td><span class="badge ${st.coveragePct === 100 || (st.functionalPct && st.functionalPct > 85) ? "green" : "amber"}">${st.status || "Audited"}</span></td>
+                  </tr>`
+                ).join("")}
+              </tbody>
+            </table>
+          </section>`
+        ).join("")}
+      </div>
+    </div>`,
+    "datagov"
+  );
+}
+
 function recommendationsView() {
   let recs = state.recommendations;
   if (activeRecFilter !== "all") {
     recs = recs.filter((r) => r.type.toLowerCase() === activeRecFilter.toLowerCase());
   }
+
+  const isGov = authApi.isGovernment();
 
   return layout(
     `<div class="page">
@@ -604,6 +830,28 @@ function recommendationsView() {
                 ? "badge-repurpose"
                 : "badge-develop";
             const icon = r.type === "REPAIR" ? "🔧" : r.type === "REPURPOSE" ? "🔄" : "🏗️";
+
+            let approveButtonHtml = "";
+            if (!isGov) {
+              approveButtonHtml = `
+                <button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;" title="Citizen accounts cannot approve government tenders">🔒 Officer Authorization Required</button>
+                <div style="font-size:10px;color:#64748b;margin-top:4px;">Citizens can review evidence. Official tenders require verified Government login.</div>
+              `;
+            } else if (r.status === "APPROVED_BY_OFFICER" || r.status === "APPROVED_FOR_TENDER") {
+              approveButtonHtml = `<button class="button secondary" disabled style="font-size:11px;">✓ Approved (${r.status})</button>`;
+            } else if (r.type === "REPAIR" && !authApi.canApproveRepair()) {
+              approveButtonHtml = `<button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;">🔒 District Officer+ Required</button>`;
+            } else if (r.type === "REPURPOSE" && !authApi.canApproveRepurpose()) {
+              approveButtonHtml = `<button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;">🔒 State Admin+ Required</button>`;
+            } else if (r.type === "NEWLY_DEVELOP" && !authApi.canApproveDevelop()) {
+              approveButtonHtml = `<button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;">🔒 National Director Required</button>`;
+            } else {
+              approveButtonHtml = `
+                <button class="button amber" data-action="approve-rec" data-rec-id="${r.id}">
+                  Approve Action Plan (${currentUser.level.split(" ")[0]})
+                </button>
+              `;
+            }
 
             return `
             <div class="rec-card">
@@ -642,9 +890,7 @@ function recommendationsView() {
                 </div>
 
                 <div class="rec-actions">
-                  <button class="button ${r.status === "APPROVED_FOR_TENDER" || r.status === "APPROVED_BY_OFFICER" ? "secondary" : "amber"}" data-action="approve-rec" data-rec-id="${r.id}">
-                    ${r.status === "APPROVED_BY_OFFICER" ? "✓ Approved by Officer" : r.status === "APPROVED_FOR_TENDER" ? "Approved for Tender" : "Approve Action Plan"}
-                  </button>
+                  ${approveButtonHtml}
                 </div>
               </div>
             </div>`;
@@ -653,6 +899,106 @@ function recommendationsView() {
       </div>
     </div>`,
     "recommendations"
+  );
+}
+
+function loginView() {
+  const user = authApi.getCurrentUser();
+  const isGov = authApi.isGovernment();
+
+  return layout(
+    `<div class="page" style="max-width:860px;margin:20px auto;">
+      ${pageHeading(
+        "Official Government Authentication",
+        "National Civic Infrastructure Portal — SSO Login",
+        "Role-based access control with multi-tier government authorization for District Officers, State Administrators, and National Ministry Officials."
+      )}
+
+      ${
+        isGov
+          ? `<div class="panel" style="margin-bottom:24px;background:#f0fdf4;border:1px solid #bbf7d0;padding:16px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div>
+                  <span class="badge green">AUTHENTICATED OFFICIAL</span>
+                  <h3 style="margin:6px 0 2px;color:#166534;">Currently Logged In: ${user.name}</h3>
+                  <div style="font-size:12px;color:#15803d;">${user.designation} • <b>${user.level}</b></div>
+                  <div style="font-size:11px;color:#166534;margin-top:4px;">Jurisdiction: ${user.jurisdiction} | Sanction Limit: ${user.approvalLimit}</div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <a class="button" href="#/dashboard">Go to Command Center →</a>
+                  <button class="button secondary" id="btn-login-signout">Sign Out</button>
+                </div>
+              </div>
+            </div>`
+          : ""
+      }
+
+      <div class="content-grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+        <!-- Left: Official Form -->
+        <section class="panel" style="padding:20px;">
+          <div class="panel-heading" style="margin-bottom:16px;">
+            <div>
+              <h2>Government Officer SSO Login</h2>
+              <span class="muted">Authorized .gov.in or .nic.in credentials</span>
+            </div>
+          </div>
+
+          <form id="gov-login-form" style="display:flex;flex-direction:column;gap:14px;">
+            <div id="login-error-msg" class="form-error" hidden style="background:#fee2e2;color:#991b1b;padding:8px 12px;border-radius:4px;font-size:12px;"></div>
+
+            <div class="field">
+              <label for="gov-username" style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Official Username or Email</label>
+              <input id="gov-username" type="text" required placeholder="e.g. officer.district or director@moua.gov.in" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
+            </div>
+
+            <div class="field">
+              <label for="gov-password" style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Government Access Password</label>
+              <input id="gov-password" type="password" required placeholder="••••••••••••" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
+            </div>
+
+            <button type="submit" class="button full amber" style="padding:12px;font-weight:700;">Secure Login to Government Workspace</button>
+            <p class="muted" style="font-size:11px;line-height:1.5;margin-top:4px;">
+              ⚠️ Unauthorized access to Government registers and budget workflows is strictly prohibited under the Information Technology Act.
+            </p>
+          </form>
+        </section>
+
+        <!-- Right: 1-Click Fast Demo Credentials -->
+        <section class="panel" style="background:#f8fafc;padding:20px;">
+          <div class="panel-heading" style="margin-bottom:14px;">
+            <div>
+              <h2>⚡ 1-Click Demo Login (Official Roles)</h2>
+              <span class="muted">Click any role to test instant hierarchical authorization</span>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${DEMO_CREDENTIALS.map(
+              (acc) => `
+              <div class="demo-acc-card" style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:5px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                  <div>
+                    <span class="badge ${acc.badgeColor}" style="font-size:9px;padding:2px 6px;">${acc.level}</span>
+                    <h4 style="margin:4px 0 1px;font-size:13px;color:#0f172a;">${acc.name}</h4>
+                  </div>
+                  <button class="button secondary" style="font-size:10px;padding:4px 9px;" data-demo-role="${acc.role}">1-Click Login</button>
+                </div>
+                <div style="font-size:11px;color:#475569;">${acc.designation}</div>
+                <div style="font-size:10px;color:#0284c7;background:#f0f9ff;padding:3px 6px;border-radius:4px;">
+                  <b>User:</b> <code>${acc.username}</code> | <b>Pass:</b> <code>${acc.password}</code>
+                </div>
+                <div style="font-size:10px;color:#64748b;">Sanction Limit: <b>${acc.approvalLimit}</b></div>
+              </div>`
+            ).join("")}
+          </div>
+
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0;text-align:center;">
+            <a href="#/report" style="font-size:12px;color:#64748b;text-decoration:none;">← Return to Public Citizen Portal</a>
+          </div>
+        </section>
+      </div>
+    </div>`,
+    "login"
   );
 }
 
@@ -713,7 +1059,7 @@ function reportView() {
       ${pageHeading(
         "Citizen Ground Evidence Portal",
         "Report Facility Issue or Abandonment",
-        "Upload geotagged photos or videos to report locked facilities, abandoned schools, defunct water kiosks, or structural damage."
+        "Upload geotagged photos or videos to report locked facilities, abandoned schools, defunct water kiosks, or structural damage across India."
       )}
 
       <div class="stepper">
@@ -741,13 +1087,13 @@ function reportView() {
 
           <div class="field">
             <label for="project-search">Associated Public Facility</label>
-            <input id="project-search" list="facility-options" required placeholder="Type or select a registered government facility...">
+            <input id="project-search" list="facility-options" required placeholder="Type or select a registered public facility anywhere in India...">
             <datalist id="facility-options">
               ${state.facilities
-                .map((f) => `<option value="${f.name}">${f.type.toUpperCase()} • ${f.district} (${f.officialStatus})</option>`)
+                .map((f) => `<option value="${f.name}">${f.type.toUpperCase()} • ${f.district} (${f.state || "India"}) - ${f.officialStatus}</option>`)
                 .join("")}
             </datalist>
-            <div id="project-info" class="selection-info">Select a facility or let GPS find the nearest government asset.</div>
+            <div id="project-info" class="selection-info">Select a facility or let GPS find the nearest registered government asset across India.</div>
           </div>
 
           <div class="field">
@@ -765,10 +1111,10 @@ function reportView() {
             <label>Geolocation (GPS Coordinates)</label>
             <div class="location-box">
               <strong id="location-status">Location ready</strong>
-              <span id="location-value">Using Andhra Pradesh default or device GPS</span>
+              <span id="location-value">Pan-India Coordinates (Auto-Detect available)</span>
               <div class="location-fields">
-                <input id="latitude" type="number" step="any" placeholder="Latitude" value="16.5123">
-                <input id="longitude" type="number" step="any" placeholder="Longitude" value="80.6214">
+                <input id="latitude" type="number" step="any" placeholder="Latitude" value="28.6139">
+                <input id="longitude" type="number" step="any" placeholder="Longitude" value="77.2090">
               </div>
               <button class="button secondary" type="button" data-action="locate">📍 Auto-Detect My Current GPS</button>
             </div>
@@ -789,7 +1135,7 @@ function reportView() {
           <h2>How AI Evaluates Your Report</h2>
           <div class="summary">
             <b>1. Proximity Cross-Referencing</b>
-            <p class="muted" style="font-size:12px;margin:5px 0 0">Your GPS coordinates are matched against the official Government Infrastructure Registry to pinpoint the exact asset ID.</p>
+            <p class="muted" style="font-size:12px;margin:5px 0 0">Your GPS coordinates are matched against the National Public Asset Register to pinpoint the exact asset ID.</p>
           </div>
           <div class="summary">
             <b>2. Vision AI Deterioration Analysis</b>
@@ -888,19 +1234,19 @@ async function detailView(id) {
 function analyticsView() {
   return layout(
     `<div class="page">
-      ${pageHeading("Demographics & Performance", "District Infrastructure Analytics", "Demographic census overlay and civic condition metrics across districts.")}
+      ${pageHeading("Demographics & Performance", "District Infrastructure Analytics", "Demographic census overlay and civic condition metrics across Indian districts.")}
       <div class="content-grid">
         <section class="panel">
           <div class="panel-heading"><h2>District Demographics & Deficit Indices</h2></div>
           <table class="data-table">
             <thead>
-              <tr><th>District</th><th>Population</th><th>Density / km²</th><th>Tracked Assets</th><th>Vulnerability Index</th></tr>
+              <tr><th>District & State</th><th>Population</th><th>Density / km²</th><th>Tracked Assets</th><th>Vulnerability Index</th></tr>
             </thead>
             <tbody>
               ${state.demographics
                 .map(
                   (d) =>
-                    `<tr><td><b>${d.district}</b></td><td>${d.population.toLocaleString()}</td><td>${d.density}</td><td>${d.facilitiesCount}</td><td>${badge(d.vulnerabilityIndex > 0.35 ? "High deficit" : "Moderate")}</td></tr>`
+                    `<tr><td><b>${d.district}</b> <small style="color:#0d9488;">(${d.state || "India"})</small></td><td>${d.population.toLocaleString()}</td><td>${d.density}</td><td>${d.facilitiesCount}</td><td>${badge(d.vulnerabilityIndex > 0.35 ? "High deficit" : "Moderate")}</td></tr>`
                 )
                 .join("")}
             </tbody>
@@ -929,25 +1275,37 @@ function analyticsView() {
    ========================================================================== */
 
 async function viewForHash(hash) {
-  if (role === "citizen" && hash === "#/dashboard") {
-    location.hash = "#/report";
-    return;
-  }
+  currentUser = authApi.getCurrentUser();
+  const isGov = authApi.isGovernment();
+
+  if (hash === "#/login") return loginView();
   if (hash === "#/report") return reportView();
   if (hash === "#/submissions") return confirmationView();
   if (hash === "#/map") return mapView();
-  if (hash === "#/abandonment") return abandonmentView();
-  if (hash === "#/recommendations") return recommendationsView();
   if (hash === "#/resolutions") return resolutionsView();
+  if (hash === "#/recommendations") return recommendationsView();
+
+  // Protected Government Routes - Block Citizens
+  const govOnlyRoutes = ["#/dashboard", "#/abandonment", "#/projects", "#/analytics", "#/data-gov"];
+  if (govOnlyRoutes.includes(hash) || hash.startsWith("#/projects/")) {
+    if (!isGov) {
+      return unauthorizedView(hash);
+    }
+  }
+
+  if (hash === "#/dashboard") return dashboardView();
+  if (hash === "#/abandonment") return abandonmentView();
+  if (hash === "#/data-gov") return dataGovView();
   if (hash === "#/projects") return projectsView();
   if (hash === "#/analytics") return analyticsView();
   if (hash.startsWith("#/projects/")) return await detailView(hash.split("/")[2]);
-  return dashboardView();
+
+  return isGov ? dashboardView() : reportView();
 }
 
 async function render() {
-  const hash = location.hash || "#/dashboard";
-  app.innerHTML = `<div class="page"><p class="muted">Loading CiviSight…</p></div>`;
+  const hash = location.hash || (authApi.isGovernment() ? "#/dashboard" : "#/report");
+  app.innerHTML = `<div class="page"><p class="muted">Loading CivicSight…</p></div>`;
   let view;
   try {
     view = await viewForHash(hash);
@@ -964,15 +1322,37 @@ async function render() {
   }
   if (hash === "#/report") bindCitizenEvents();
   if (hash === "#/recommendations") bindRecommendationEvents();
+  if (hash === "#/login") bindLoginEvents();
+  if (hash === "#/data-gov") bindDataGovEvents();
 }
 
 function bindGlobalEvents() {
   document.querySelectorAll("[data-role]").forEach((button) => {
     button.addEventListener("click", () => {
-      role = button.dataset.role;
-      location.hash = role === "citizen" ? "#/report" : "#/dashboard";
+      const targetRole = button.dataset.role;
+      if (targetRole === "citizen") {
+        authApi.logout();
+        role = "citizen";
+        location.hash = "#/report";
+      } else {
+        if (!authApi.isGovernment()) {
+          location.hash = "#/login";
+        } else {
+          role = "officer";
+          location.hash = "#/dashboard";
+        }
+      }
     });
   });
+
+  const sidebarSignout = document.querySelector("#btn-sidebar-signout");
+  if (sidebarSignout) {
+    sidebarSignout.onclick = () => {
+      authApi.logout();
+      role = "citizen";
+      location.hash = "#/report";
+    };
+  }
 
   document.querySelectorAll("[data-action='toast']").forEach((button) => {
     button.addEventListener("click", () => {
@@ -982,6 +1362,62 @@ function bindGlobalEvents() {
       }, 900);
     });
   });
+}
+
+function bindLoginEvents() {
+  const form = document.querySelector("#gov-login-form");
+  const errorMsg = document.querySelector("#login-error-msg");
+
+  if (form) {
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const username = document.querySelector("#gov-username").value;
+      const password = document.querySelector("#gov-password").value;
+      const res = authApi.login(username, password);
+      if (res.success) {
+        role = "officer";
+        location.hash = "#/dashboard";
+      } else {
+        errorMsg.textContent = res.message;
+        errorMsg.hidden = false;
+      }
+    };
+  }
+
+  document.querySelectorAll("[data-demo-role]").forEach((btn) => {
+    btn.onclick = () => {
+      const demoRole = btn.dataset.demoRole;
+      authApi.loginDemo(demoRole);
+      role = "officer";
+      location.hash = "#/dashboard";
+    };
+  });
+
+  const signoutBtn = document.querySelector("#btn-login-signout");
+  if (signoutBtn) {
+    signoutBtn.onclick = () => {
+      authApi.logout();
+      role = "citizen";
+      location.hash = "#/report";
+    };
+  }
+}
+
+function bindDataGovEvents() {
+  const syncBtn = document.querySelector("#btn-sync-data-gov");
+  if (syncBtn) {
+    syncBtn.onclick = async () => {
+      syncBtn.disabled = true;
+      syncBtn.textContent = "⏳ Ingesting Data.gov.in APIs...";
+      const res = await dataGovApi.syncRealtimeData();
+      syncBtn.textContent = `✓ Ingested ${res.syncedCatalogsCount} Official APIs (${new Date().toLocaleTimeString()})`;
+      setTimeout(() => {
+        syncBtn.disabled = false;
+        syncBtn.textContent = "⚡ Sync Data.gov.in Live APIs";
+      }, 3500);
+      render();
+    };
+  }
 }
 
 function bindRecommendationEvents() {
@@ -994,11 +1430,31 @@ function bindRecommendationEvents() {
 
   document.querySelectorAll("[data-action='approve-rec']").forEach((btn) => {
     btn.onclick = async () => {
+      if (!authApi.isGovernment()) {
+        alert("Access Denied: Citizens cannot approve government tenders or capital actions. Please log in as a Government Officer.");
+        location.hash = "#/login";
+        return;
+      }
+
       const recId = btn.dataset.recId;
+      const rec = state.recommendations.find((r) => r.id === recId);
+      if (rec) {
+        if (rec.type === "REPAIR" && !authApi.canApproveRepair()) {
+          alert("Permission Denied: District Officer or higher authorization required.");
+          return;
+        }
+        if (rec.type === "REPURPOSE" && !authApi.canApproveRepurpose()) {
+          alert("Permission Denied: State Administrator or National Director authorization required for facility repurposing.");
+          return;
+        }
+        if (rec.type === "NEWLY_DEVELOP" && !authApi.canApproveDevelop()) {
+          alert("Permission Denied: National Mission Director (MoHUA) sanction required for new capital works.");
+          return;
+        }
+      }
+
       await recommendationsApi.approveRecommendation(recId);
-      btn.textContent = "✓ Approved by Officer";
-      btn.classList.remove("amber");
-      btn.classList.add("secondary");
+      render();
     };
   });
 }
@@ -1034,11 +1490,11 @@ function bindCitizenEvents() {
   function renderFacilityInfo() {
     const fac = selectedFacility();
     if (fac) {
-      projectInfo.innerHTML = `<strong>${fac.name}</strong><span>${fac.type.toUpperCase()} • ${fac.district} • Status: <b>${fac.officialStatus}</b></span>`;
+      projectInfo.innerHTML = `<strong>${fac.name}</strong><span>${fac.type.toUpperCase()} • ${fac.district} (${fac.state || "India"}) • Status: <b>${fac.officialStatus}</b></span>`;
       document.querySelector("#latitude").value = fac.lat;
       document.querySelector("#longitude").value = fac.lng;
     } else {
-      projectInfo.innerHTML = "Select a facility or let GPS find the nearest registered government asset.";
+      projectInfo.innerHTML = "Select a facility or let GPS find the nearest registered government asset across India.";
     }
   }
 
@@ -1095,7 +1551,7 @@ function bindCitizenEvents() {
         status.textContent = "GPS Locked";
         value.textContent = `${lat} N, ${lng} E`;
 
-        // Match nearest facility
+        // Match nearest facility across India
         let closest = null;
         let minDist = Infinity;
         state.facilities.forEach((f) => {
@@ -1105,7 +1561,7 @@ function bindCitizenEvents() {
             closest = f;
           }
         });
-        if (closest && minDist < 0.2) {
+        if (closest && minDist < 0.3) {
           facilityInput.value = closest.name;
           renderFacilityInfo();
         }
@@ -1135,9 +1591,9 @@ function bindCitizenEvents() {
         facilityName: fac ? fac.name : facilityInput.value || "Reported Location Asset",
         issueType: issueTypeInput.value,
         issueTitle: description.value.slice(0, 45),
-        district: fac ? fac.district : "Andhra Pradesh",
-        lat: Number(document.querySelector("#latitude").value) || 16.5,
-        lng: Number(document.querySelector("#longitude").value) || 80.6,
+        district: fac ? `${fac.district} (${fac.state || "India"})` : "India",
+        lat: Number(document.querySelector("#latitude").value) || 28.6139,
+        lng: Number(document.querySelector("#longitude").value) || 77.2090,
         description: description.value,
         reportedBy: "Citizen Ground Contributor",
       };

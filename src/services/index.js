@@ -11,3 +11,5 @@ export { aiApiService } from "./aiService.js";
 export { facilitiesApi } from "./facilitiesApi.js";
 export { recommendationsApi } from "./recommendationsApi.js";
 export { civicReportsApi } from "./civicReportsApi.js";
+export { dataGovApi, DATA_GOV_CATALOGS } from "./dataGovApi.js";
+export { GOV_ROLES, DEMO_CREDENTIALS } from "./auth.js";

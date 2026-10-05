@@ -148,4 +148,14 @@ h3 { font-size: 15px; margin-bottom: 3px; }
 .comparison-box img { width: 100%; height: 140px; object-fit: cover; display: block; }
 .comparison-label { font-size: 11px; font-weight: 700; padding: 5px; background: #334155; color: white; }
 .comparison-label.after { background: #059669; }
-.ai-verification-badge { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 6px; background: #ecfdf5; border: 1px solid #a7f3d0; margin-top: 10px; font-size: 12px; color: #065f46; font-weight: 600; }
+.ai-verification-badge { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 6px; background: #ecfdf5; border: 1px solid #a7f3d0; margin-top: 10px; font-size: 12px; color: #065f46; font-weight: 600; }
+
+/* Disabled button and Auth Helpers */
+.button:disabled, .button.disabled { opacity: 0.65; cursor: not-allowed; filter: grayscale(0.2); box-shadow: none !important; }
+.badge.blue { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+.badge.green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.badge.amber { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.badge.red { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.demo-acc-card { transition: all 0.2s; }
+.demo-acc-card:hover { border-color: #0284c7; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.08); }
+
