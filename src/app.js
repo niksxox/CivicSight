@@ -397,8 +397,8 @@ function dashboardView() {
   return layout(
     `<div class="page dashboard-page">
       ${pageHeading(
-        "National Civic Infrastructure Intelligence",
-        "Command Center & Delivery Monitor (All India)",
+        "National Civic Infrastructure Monitor",
+        "Command Center (All India)",
         "Combining government public asset registers and census demographics with citizen ground evidence to detect abandonment and recommend actions across Indian States.",
         `<div style="display:flex;gap:8px;">
           <a class="button amber" href="#/report">+ Report Ground Issue</a>
@@ -432,8 +432,8 @@ function dashboardView() {
       <section class="panel" style="margin-bottom:20px;">
         <div class="panel-heading">
           <div>
-            <h2>Geospatial Infrastructure & Alert Map (Pan-India)</h2>
-            <span class="muted">Interactive GIS layer showing government assets, citizen reports, and satellite imagery across Indian States</span>
+            <h2>Infrastructure & Alert Map</h2>
+            <span class="muted">Government assets, citizen reports, and basemap imagery across Indian states</span>
           </div>
           <div class="map-layer-toggles">
             <button id="btn-basemap-streets" class="${currentBasemap === "streets" ? "active" : ""}">Vector Streets</button>
@@ -534,8 +534,8 @@ function mapView() {
   return layout(
     `<div class="page">
       ${pageHeading(
-        "Geospatial Intelligence",
-        "Interactive Infrastructure GIS & Satellite Map",
+        "Geospatial Map",
+        "Infrastructure GIS & Satellite Map",
         "Pan, zoom, and inspect public assets against satellite imagery, population clusters, and citizen alerts."
       )}
       <section class="panel">
@@ -585,7 +585,7 @@ function mapView() {
         <section class="panel">
           <div class="panel-heading"><h2>National Deficit Hotspots</h2></div>
           <p class="muted" style="font-size:13px;line-height:1.5;">
-            Geospatial catchment analysis cross-referencing population density against functional public facilities has identified the following high-priority infrastructure voids across India:
+            Areas with high population density and limited functional public facilities:
           </p>
           <ul style="padding-left:18px;font-size:12px;color:#334155;line-height:1.7;">
             <li><b>Mumbai Dharavi Sector 5 (Maharashtra):</b> 28,000 residents living beyond 800m of functional sanitation.</li>
@@ -606,7 +606,7 @@ function abandonmentView() {
     `<div class="page">
       ${pageHeading(
         "Infrastructure Underutilization & Abandonment",
-        "Pan-India Public Asset Condition & Abandonment Detector",
+        "Public Asset Condition & Abandonment Register",
         "Detects facilities officially recorded as active that are actually abandoned, locked, or unmaintained based on citizen ground evidence across Indian States.",
         `<a class="button amber" href="#/report">+ Report Abandoned Facility</a>`
       )}
@@ -673,7 +673,7 @@ function dataGovView() {
       ${pageHeading(
         "Open Government Data (OGD) Platform",
         "Data.gov.in Datasets & Telemetry",
-        "Real-time pipeline ingestion directly from official Open Government Data catalogs: Ministry of Jal Shakti (JJM), MoHUA (SBM-U 2.0), Ministry of Rural Development (PMGSY), and Ministry of Education (UDISE+).",
+        "Official datasets from Jal Shakti (JJM), MoHUA (SBM-U 2.0), Rural Development (PMGSY), and Education (UDISE+), checked against field reports.",
         `<div style="display:flex;gap:8px;">
           <button id="btn-sync-data-gov" class="button" style="background:#0284c7;border-color:#0284c7;color:white;font-weight:700;">Sync data.gov.in Live APIs</button>
         </div>`
@@ -707,10 +707,10 @@ function dataGovView() {
       <section class="panel" style="margin-bottom:24px;border-left:4px solid #f59e0b;">
         <div class="panel-heading">
           <div>
-            <h2>Data.gov.in vs. Citizen Ground-Truth Cross-Reference</h2>
-            <span class="muted">CivicSight cross-references official completion claims against geotagged citizen abandonment alerts</span>
+            <h2>Official Data vs. Citizen Reports</h2>
+            <span class="muted">Compares official completion figures with geotagged citizen reports</span>
           </div>
-          <span class="badge amber">Real-Time Validation</span>
+          <span class="badge amber">Cross-Validation</span>
         </div>
         <div style="font-size:13px;color:#334155;line-height:1.6;margin-bottom:12px;">
           While <b>data.gov.in</b> records register <b>${catalogs[0].metrics.totalRuralHouseholdsWithTap}</b> water taps and <b>${catalogs[1].metrics.geotaggedPublicToilets}</b> sanitation units, CivicSight's ground stream has flagged <b>${state.facilities.filter((f) => f.officialStatus === "ABANDONED" || f.officialStatus === "DEFUNCT").length} defunct or abandoned public assets</b> across monitored urban slums and peri-urban perimeters with dry pipes, broken pumps, or padlocks.
