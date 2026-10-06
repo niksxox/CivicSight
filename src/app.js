@@ -53,7 +53,7 @@ const officerNav = [
   ["Command center", "dashboard", "#/dashboard"],
   ["GIS satellite map", "map", "#/map"],
   ["Abandonment detector", "abandonment", "#/abandonment"],
-  ["AI recommendations", "recommendations", "#/recommendations"],
+  ["Recommendations", "recommendations", "#/recommendations"],
   ["Data.gov.in Real-Time", "datagov", "#/data-gov"],
   ["Resolution studio", "verify", "#/resolutions"],
   ["Capital projects", "projects", "#/projects"],
@@ -63,7 +63,7 @@ const officerNav = [
 const citizenNav = [
   ["Report civic issue", "capture", "#/report"],
   ["Civic map & alerts", "map", "#/map"],
-  ["AI recommendations", "recommendations", "#/recommendations"],
+  ["Recommendations", "recommendations", "#/recommendations"],
   ["Verified resolutions", "verify", "#/resolutions"],
   ["My submissions", "evidence", "#/submissions"],
   ["Official login", "login", "#/login"],
@@ -303,7 +303,7 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
           <h4 style="margin:4px 0 6px;font-size:13px;color:#0f172a;">${rep.issueTitle}</h4>
           <p style="font-size:12px;color:#475569;margin:0 0 6px;">${rep.description}</p>
           <div style="font-size:11px;color:#64748b;">Reported by: <b>${rep.reportedBy}</b> (${rep.district})</div>
-          <div style="margin-top:6px;font-size:11px;color:#059669;font-weight:600;">AI Vision Confidence: ${rep.aiConfidence}%</div>
+          <div style="margin-top:6px;font-size:11px;color:#059669;font-weight:600;">Verification confidence: ${rep.aiConfidence}%</div>
         </div>
       `;
 
@@ -504,7 +504,7 @@ function dashboardView() {
           <div class="panel-heading">
             <div>
               <h2>Recent Ground Evidence Stream</h2>
-              <span class="muted">Live citizen uploads & AI validation across India</span>
+              <span class="muted">Recent citizen uploads with verification scores</span>
             </div>
             <a class="text-link" href="#/report">Submit report</a>
           </div>
@@ -708,7 +708,7 @@ function dataGovView() {
         <div class="panel-heading">
           <div>
             <h2>Data.gov.in vs. Citizen Ground-Truth Cross-Reference</h2>
-            <span class="muted">AI engine cross-references official 100% completion claims against geotagged citizen abandonment alerts</span>
+            <span class="muted">CivicSight cross-references official completion claims against geotagged citizen abandonment alerts</span>
           </div>
           <span class="badge amber">Real-Time Validation</span>
         </div>
@@ -717,7 +717,7 @@ function dataGovView() {
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
           <a class="button amber" href="#/abandonment">View Abandonment Audit Detector →</a>
-          <a class="button secondary" href="#/recommendations">View AI Rectification Matrix →</a>
+          <a class="button secondary" href="#/recommendations">View Recommended Actions →</a>
         </div>
       </section>
 
@@ -983,7 +983,7 @@ function resolutionsView() {
       ${pageHeading(
         "Resolution Verification Studio",
         "Before vs. After Visual Verification",
-        "Validates that civic works, repairs, and facility unlocks reported as completed are verified by visual AI comparison and field sign-offs."
+        "Validates that civic works, repairs, and facility unlocks reported as completed are verified by before/after image comparison and field sign-offs."
       )}
 
       <div class="resolution-grid">
@@ -1116,7 +1116,7 @@ function reportView() {
             <p class="muted" style="font-size:12px;margin:5px 0 0">Submitted images are inspected for rusted padlocks, broken glass, vegetation overgrowth, and dry taps to calculate an Abandonment Score.</p>
           </div>
           <div class="summary">
-            <b>3. Policy Recommendation Matrix</b>
+            <b>3. Recommendation Routing</b>
             <p class="muted" style="font-size:12px;margin:5px 0 0">Verified reports automatically route into District Works planning for urgent <b>Repair</b> or community <b>Repurposing</b>.</p>
           </div>
         </aside>
