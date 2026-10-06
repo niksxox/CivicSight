@@ -36,7 +36,7 @@ let activeRecFilter = "all";
 let activeRegion = "all";
 
 export const INDIA_REGIONS = [
-  { id: "all", label: "All India 🇮🇳", coords: [21.7679, 78.8718], zoom: 5 },
+  { id: "all", label: "All India", coords: [21.7679, 78.8718], zoom: 5 },
   { id: "delhi", label: "Delhi NCR", coords: [28.6139, 77.2090], zoom: 11 },
   { id: "maharashtra", label: "Maharashtra (Mumbai)", coords: [19.0760, 72.8777], zoom: 11 },
   { id: "karnataka", label: "Karnataka (Bengaluru)", coords: [12.9716, 77.5946], zoom: 11 },
@@ -48,20 +48,6 @@ export const INDIA_REGIONS = [
   { id: "rajasthan", label: "Rajasthan (Jaipur)", coords: [26.9124, 75.7873], zoom: 11 },
   { id: "ap", label: "Andhra Pradesh", coords: [16.5062, 80.6480], zoom: 8 },
 ];
-
-const icons = {
-  dashboard: "🎛️",
-  projects: "📋",
-  map: "🗺️",
-  capture: "📸",
-  analytics: "📊",
-  evidence: "📁",
-  verify: "✅",
-  abandonment: "🏚️",
-  recommendations: "💡",
-  datagov: "🇮🇳",
-  login: "🔐",
-};
 
 const officerNav = [
   ["Command center", "dashboard", "#/dashboard"],
@@ -121,7 +107,7 @@ function layout(content, currentRoute) {
     <aside class="sidebar">
       <a class="brand" href="${isGov ? "#/dashboard" : "#/report"}">
         <span class="brand-mark"><span>+</span></span>
-        <span><strong>CivicSight</strong><small>National Civic Intel</small></span>
+        <span><strong>CivicSight</strong><small>Civic Infrastructure Platform</small></span>
       </a>
 
       <!-- Profile & Hierarchy Badge -->
@@ -134,7 +120,7 @@ function layout(content, currentRoute) {
               </div>
               <div style="font-size:12px;font-weight:700;margin-top:5px;color:#f8fafc;">${currentUser.name}</div>
               <div style="font-size:10px;color:#94a3b8;line-height:1.3;margin-top:2px;">${currentUser.designation}</div>
-              <div style="font-size:9px;color:#38bdf8;margin-top:4px;">Limits: ${currentUser.approvalLimit}</div>
+              <div style="font-size:9px;color:#38bdf8;margin-top:4px;">Approval limit: ${currentUser.approvalLimit}</div>
             </div>`
           : `<div class="user-profile-badge" style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:9px 12px;margin:8px 12px;">
               <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -147,18 +133,18 @@ function layout(content, currentRoute) {
 
       <div class="role-switcher">
         <button class="${!isGov || role === "citizen" ? "active" : ""}" data-role="citizen">Citizen portal</button>
-        <button class="${isGov && role === "officer" ? "active" : ""}" data-role="officer">${isGov ? "Government" : "Gov Login 🔒"}</button>
+        <button class="${isGov && role === "officer" ? "active" : ""}" data-role="officer">${isGov ? "Government" : "Gov Login"}</button>
       </div>
 
       <div class="nav-label">Workspace</div>
       <nav class="nav">${nav
         .map(
           ([label, icon, href]) =>
-            `<a class="${currentRoute === href.slice(2) ? "active" : ""}" href="${href}"><span class="nav-icon">${icons[icon]}</span>${label}</a>`
+            `<a class="${currentRoute === href.slice(2) ? "active" : ""}" href="${href}">${label}</a>`
         )
         .join("")}</nav>
       <div class="sidebar-footer">
-        <strong>${isGov ? "Government Administration" : "Citizen Action Network"}</strong>
+        <strong>${isGov ? "Government Administration" : "Community Reporting"}</strong>
         ${isGov ? `${currentUser.department}` : "Community reporting across Indian states"}
       </div>
     </aside>
@@ -179,7 +165,6 @@ function unauthorizedView(requestedRoute) {
   return layout(
     `<div class="page">
       <div class="panel" style="max-width:680px;margin:40px auto;text-align:center;padding:40px 24px;">
-        <div style="font-size:48px;margin-bottom:12px;">🔒</div>
         <div class="eyebrow" style="color:#dc2626;font-weight:700;">Restricted Government Access</div>
         <h1 style="font-size:24px;margin:8px 0 12px;color:#0f172a;">Official Authorization Required</h1>
         <p class="subhead" style="margin-bottom:20px;font-size:14px;color:#475569;line-height:1.6;">
@@ -254,19 +239,19 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
     bounds.push([fac.lat, fac.lng]);
 
     let color = "#2563eb";
-    let iconChar = "🏛️";
+    let iconChar = "F";
     if (fac.type === "school") {
       color = "#7c3aed";
-      iconChar = "🏫";
+      iconChar = "S";
     } else if (fac.type === "toilet") {
       color = "#d97706";
-      iconChar = "🚾";
+      iconChar = "T";
     } else if (fac.type === "water") {
       color = "#0284c7";
-      iconChar = "💧";
+      iconChar = "W";
     } else if (fac.type === "health") {
       color = "#059669";
-      iconChar = "🏥";
+      iconChar = "H";
     }
 
     if (fac.officialStatus === "ABANDONED" || fac.officialStatus === "DEFUNCT") {
@@ -290,9 +275,9 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
         </div>
         <p style="font-size:12px;color:#334155;margin:0 0 8px;line-height:1.4;">${fac.conditionNotes}</p>
         <div style="background:#f8fafc;padding:6px 8px;border-radius:4px;font-size:11px;color:#475569;margin-bottom:8px;">
-          <div>👥 Catchment: <b>${fac.populationCatchment?.toLocaleString()} residents</b></div>
-          <div>📢 Citizen ground alerts: <b>${fac.citizenReportCount} reports</b></div>
-          ${fac.recommendedAction ? `<div>💡 AI Recommendation: <b>${fac.recommendedAction}</b></div>` : ""}
+          <div>Catchment: <b>${fac.populationCatchment?.toLocaleString()} residents</b></div>
+          <div>Citizen ground alerts: <b>${fac.citizenReportCount} reports</b></div>
+          ${fac.recommendedAction ? `<div>Recommendation: <b>${fac.recommendedAction}</b></div>` : ""}
         </div>
         <a href="#/report" style="display:inline-block;padding:5px 9px;background:#0d9488;color:white;text-decoration:none;border-radius:4px;font-size:11px;font-weight:600;">+ File Ground Report</a>
       </div>
@@ -307,7 +292,7 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
       bounds.push([rep.lat, rep.lng]);
       const alertMarker = L.divIcon({
         className: "custom-alert-pin",
-        html: `<div style="background:#ef4444;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:14px;border:2.5px solid white;box-shadow:0 3px 8px rgba(220,38,38,0.5);animation:pulse 1.8s infinite;">⚠️</div>`,
+        html: `<div style="background:#ef4444;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:14px;border:2.5px solid white;box-shadow:0 3px 8px rgba(220,38,38,0.5);animation:pulse 1.8s infinite;">!</div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 14],
       });
@@ -376,12 +361,12 @@ function mountLeafletMap(containerId = "gis-leaflet-map", filterType = "all") {
       const b = map.getBounds();
       const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
       const activeRegObj = INDIA_REGIONS.find((r) => r.id === activeRegion);
-      const regName = activeRegObj ? activeRegObj.label.replace(" 🇮🇳", "") : "India";
+      const regName = activeRegObj ? activeRegObj.label : "India";
       const newItems = await facilitiesApi.fetchLiveOsmFacilities(bbox, regName);
       liveOsmBtn.textContent = `✓ Added ${newItems.length} Live Assets (${regName})`;
       setTimeout(() => {
         liveOsmBtn.disabled = false;
-        liveOsmBtn.textContent = "⚡ Stream Live OSM Data";
+        liveOsmBtn.textContent = "Load Live Facility Data";
       }, 3000);
       mountLeafletMap(containerId, activeFilter);
     };
@@ -407,7 +392,7 @@ function dashboardView() {
   const recSummary = getRecommendationsSummary();
   const topAbandonment = [...state.facilities]
     .sort((a, b) => b.abandonmentScore - a.abandonmentScore)
-    .slice(0, 5);
+    .slice(0, 4);
 
   return layout(
     `<div class="page dashboard-page">
@@ -417,7 +402,7 @@ function dashboardView() {
         "Combining government public asset registers and census demographics with citizen ground evidence to detect abandonment and recommend actions across Indian States.",
         `<div style="display:flex;gap:8px;">
           <a class="button amber" href="#/report">+ Report Ground Issue</a>
-          <a class="button" href="#/recommendations">View AI Recommendations</a>
+          <a class="button" href="#/recommendations">View Recommendations</a>
         </div>`
       )}
 
@@ -442,16 +427,6 @@ function dashboardView() {
           <div class="stat-value">${recSummary.repair}</div>
           <span class="stat-note">Immediate interventions</span>
         </div>
-        <div class="stat status-stat stat-completed">
-          <span class="stat-label">Repurpose Plans</span>
-          <div class="stat-value">${recSummary.repurpose}</div>
-          <span class="stat-note">Converting disused assets</span>
-        </div>
-        <div class="stat status-stat stat-on-track">
-          <span class="stat-label">New Developments</span>
-          <div class="stat-value">${recSummary.newlyDevelop}</div>
-          <span class="stat-note">Addressing deficit zones</span>
-        </div>
       </div>
 
       <section class="panel" style="margin-bottom:20px;">
@@ -472,17 +447,17 @@ function dashboardView() {
             <button data-map-filter="toilet">Public Toilets</button>
             <button data-map-filter="water">Water Plants</button>
             <button data-map-filter="health">Health Clinics</button>
-            <button id="btn-fetch-live-osm" style="background:#0284c7;color:white;border-color:#0284c7;font-weight:700;">⚡ Stream Live OSM Data</button>
+            <button id="btn-fetch-live-osm" style="background:#0284c7;color:white;border-color:#0284c7;font-weight:700;">Load Live Facility Data</button>
           </div>
           <div class="map-stat-badges">
-            <span>🏫 ${state.facilities.filter((f) => f.type === "school").length} Schools</span>
-            <span>🚾 ${state.facilities.filter((f) => f.type === "toilet").length} Toilets</span>
-            <span>💧 ${state.facilities.filter((f) => f.type === "water").length} Water</span>
-            <span>⚠️ ${state.civicReports.length} Alerts</span>
+            <span>${state.facilities.filter((f) => f.type === "school").length} Schools</span>
+            <span>${state.facilities.filter((f) => f.type === "toilet").length} Toilets</span>
+            <span>${state.facilities.filter((f) => f.type === "water").length} Water</span>
+            <span>${state.civicReports.length} Alerts</span>
           </div>
         </div>
         <div class="map-layer-toggles region-selector-strip" style="margin: 8px 14px 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
-          <span style="font-size:11px;font-weight:700;color:#64748b;margin-right:2px;">📍 State / City:</span>
+          <span style="font-size:11px;font-weight:700;color:#64748b;margin-right:2px;">Region:</span>
           ${INDIA_REGIONS.map(
             (reg) => `<button data-region-jump="${reg.id}" class="${activeRegion === reg.id ? "active" : ""}" style="font-size:11px;padding:3px 8px;">${reg.label}</button>`
           ).join("")}
@@ -535,14 +510,14 @@ function dashboardView() {
           </div>
           <div class="activity">
             ${state.civicReports
-              .slice(0, 4)
+              .slice(0, 3)
               .map(
                 (r) => `<div class="activity-item">
                   <span class="activity-dot" style="background:#ef4444;"></span>
                   <div>
                     <p><b>${r.issueTitle}</b> — ${r.facilityName}</p>
                     <span style="font-size:11px;color:#64748b;">${r.description.slice(0, 85)}...</span>
-                    <div style="font-size:10px;color:#0d9488;margin-top:2px;">AI Match: ${r.aiConfidence}% confidence • ${r.district}</div>
+                    <div style="font-size:10px;color:#0d9488;margin-top:2px;">${r.aiConfidence}% confidence • ${r.district}</div>
                   </div>
                 </div>`
               )
@@ -575,11 +550,11 @@ function mapView() {
             <button data-map-filter="toilet">Public Toilets</button>
             <button data-map-filter="water">Water Assets</button>
             <button data-map-filter="health">Health Centers</button>
-            <button id="btn-fetch-live-osm" style="background:#0284c7;color:white;border-color:#0284c7;font-weight:700;">⚡ Stream Live OSM Data</button>
+            <button id="btn-fetch-live-osm" style="background:#0284c7;color:white;border-color:#0284c7;font-weight:700;">Load Live Facility Data</button>
           </div>
         </div>
         <div class="map-layer-toggles region-selector-strip" style="margin: 8px 14px 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
-          <span style="font-size:11px;font-weight:700;color:#64748b;margin-right:2px;">📍 Jump to Region:</span>
+          <span style="font-size:11px;font-weight:700;color:#64748b;margin-right:2px;">Region:</span>
           ${INDIA_REGIONS.map(
             (reg) => `<button data-region-jump="${reg.id}" class="${activeRegion === reg.id ? "active" : ""}" style="font-size:11px;padding:3px 8px;">${reg.label}</button>`
           ).join("")}
@@ -591,6 +566,7 @@ function mapView() {
         <section class="panel">
           <div class="panel-heading"><h2>State & District Infrastructure Coverage</h2></div>
           ${state.demographics
+            .slice(0, 6)
             .map(
               (d) => `<div class="summary-row" style="padding:10px 0;border-bottom:1px solid #edf1f4;">
                 <div>
@@ -616,9 +592,6 @@ function mapView() {
             <li><b>Varanasi Adampur Slum Cluster (UP):</b> 14,000 handloom artisans lacking clean piped RO drinking water.</li>
             <li><b>Central Delhi Narela Sub-city (Delhi):</b> Vacant 10-room school suitable for Maternal & Child Health conversion.</li>
             <li><b>Bengaluru Peenya 2nd Stage (Karnataka):</b> Garment industrial cluster needing worker creche & health sub-center.</li>
-            <li><b>Chennai Vyasarpadi North (Tamil Nadu):</b> Collapsed drainage requiring elevated eco-sanitation rebuild.</li>
-            <li><b>Kolkata Topsia Canal Belt (West Bengal):</b> Underutilized school suitable for immunization clinic.</li>
-            <li><b>Guntur & Vijayawada Hubs (Andhra Pradesh):</b> Dense urban market habitations targeted for RO water ATM overhaul.</li>
           </ul>
         </section>
       </div>
@@ -648,7 +621,7 @@ function abandonmentView() {
       <section class="panel">
         <div class="panel-heading">
           <h2>Monitored Public Facilities Register (All India)</h2>
-          <span class="muted">${facilities.length} government assets evaluated across States</span>
+          <span class="muted">Showing top 10 of ${facilities.length} government assets evaluated across States</span>
         </div>
         <div class="table-wrap">
           <table class="data-table">
@@ -663,7 +636,9 @@ function abandonmentView() {
               </tr>
             </thead>
             <tbody>
-              ${facilities
+              ${[...facilities]
+                .sort((a, b) => b.abandonmentScore - a.abandonmentScore)
+                .slice(0, 10)
                 .map(
                   (f) => `<tr>
                     <td><b>${f.name}</b><br><span class="muted">Est. ${f.establishedYear} • Last insp: ${f.lastInspection}</span></td>
@@ -672,7 +647,7 @@ function abandonmentView() {
                     <td>${abandonmentBadge(f.abandonmentScore)}</td>
                     <td style="max-width:320px;font-size:12px;color:#334155;">
                       ${f.conditionNotes}
-                      <div style="margin-top:4px;font-size:11px;color:#dc2626;">📢 ${f.citizenReportCount} citizen reports verified</div>
+                      <div style="margin-top:4px;font-size:11px;color:#dc2626;">${f.citizenReportCount} citizen reports verified</div>
                     </td>
                     <td>
                       <span class="rec-type-badge badge-${(f.recommendedAction || "repair").toLowerCase()}">${f.recommendedAction || "MAINTAIN"}</span>
@@ -697,10 +672,10 @@ function dataGovView() {
     `<div class="page">
       ${pageHeading(
         "Open Government Data (OGD) Platform",
-        "Data.gov.in National Real-Time Telemetry & Datasets",
+        "Data.gov.in Datasets & Telemetry",
         "Real-time pipeline ingestion directly from official Open Government Data catalogs: Ministry of Jal Shakti (JJM), MoHUA (SBM-U 2.0), Ministry of Rural Development (PMGSY), and Ministry of Education (UDISE+).",
         `<div style="display:flex;gap:8px;">
-          <button id="btn-sync-data-gov" class="button" style="background:#0284c7;border-color:#0284c7;color:white;font-weight:700;">⚡ Sync Data.gov.in Live APIs</button>
+          <button id="btn-sync-data-gov" class="button" style="background:#0284c7;border-color:#0284c7;color:white;font-weight:700;">Sync data.gov.in Live APIs</button>
         </div>`
       )}
 
@@ -779,7 +754,7 @@ function dataGovView() {
                 </tr>
               </thead>
               <tbody>
-                ${(cat.stateBreakdown || []).slice(0, 5).map(
+                ${(cat.stateBreakdown || []).slice(0, 3).map(
                   (st) => `
                   <tr>
                     <td><b>${st.state}</b></td>
@@ -808,16 +783,16 @@ function recommendationsView() {
   return layout(
     `<div class="page">
       ${pageHeading(
-        "AI Strategic Decision Engine",
+        "Decision Support",
         "Action Recommendations: Repair, Repurpose, or Develop",
         "Synthesizes demographic census data, existing infrastructure records, and ground citizen evidence into actionable civic intervention plans."
       )}
 
       <div class="map-layer-toggles" style="margin-bottom:18px;">
         <button data-rec-tab="all" class="${activeRecFilter === "all" ? "active" : ""}">All Recommendations (${state.recommendations.length})</button>
-        <button data-rec-tab="repair" class="${activeRecFilter === "repair" ? "active" : ""}">🔧 Repair Urgent Infrastructure (${state.recommendations.filter((r) => r.type === "REPAIR").length})</button>
-        <button data-rec-tab="repurpose" class="${activeRecFilter === "repurpose" ? "active" : ""}">🔄 Repurpose Abandoned Assets (${state.recommendations.filter((r) => r.type === "REPURPOSE").length})</button>
-        <button data-rec-tab="newly_develop" class="${activeRecFilter === "newly_develop" ? "active" : ""}">🏗️ Newly Develop in Deficit Hotspots (${state.recommendations.filter((r) => r.type === "NEWLY_DEVELOP").length})</button>
+        <button data-rec-tab="repair" class="${activeRecFilter === "repair" ? "active" : ""}">Repair (${state.recommendations.filter((r) => r.type === "REPAIR").length})</button>
+        <button data-rec-tab="repurpose" class="${activeRecFilter === "repurpose" ? "active" : ""}">Repurpose (${state.recommendations.filter((r) => r.type === "REPURPOSE").length})</button>
+        <button data-rec-tab="newly_develop" class="${activeRecFilter === "newly_develop" ? "active" : ""}">New Development (${state.recommendations.filter((r) => r.type === "NEWLY_DEVELOP").length})</button>
       </div>
 
       <div class="rec-grid">
@@ -829,22 +804,21 @@ function recommendationsView() {
                 : r.type === "REPURPOSE"
                 ? "badge-repurpose"
                 : "badge-develop";
-            const icon = r.type === "REPAIR" ? "🔧" : r.type === "REPURPOSE" ? "🔄" : "🏗️";
 
             let approveButtonHtml = "";
             if (!isGov) {
               approveButtonHtml = `
-                <button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;" title="Citizen accounts cannot approve government tenders">🔒 Officer Authorization Required</button>
+                <button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;" title="Citizen accounts cannot approve government tenders">Officer Authorization Required</button>
                 <div style="font-size:10px;color:#64748b;margin-top:4px;">Citizens can review evidence. Official tenders require verified Government login.</div>
               `;
             } else if (r.status === "APPROVED_BY_OFFICER" || r.status === "APPROVED_FOR_TENDER") {
               approveButtonHtml = `<button class="button secondary" disabled style="font-size:11px;">✓ Approved (${r.status})</button>`;
             } else if (r.type === "REPAIR" && !authApi.canApproveRepair()) {
-              approveButtonHtml = `<button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;">🔒 District Officer+ Required</button>`;
+              approveButtonHtml = `<button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;">District Officer+ Required</button>`;
             } else if (r.type === "REPURPOSE" && !authApi.canApproveRepurpose()) {
-              approveButtonHtml = `<button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;">🔒 State Admin+ Required</button>`;
+              approveButtonHtml = `<button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;">State Admin+ Required</button>`;
             } else if (r.type === "NEWLY_DEVELOP" && !authApi.canApproveDevelop()) {
-              approveButtonHtml = `<button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;">🔒 National Director Required</button>`;
+              approveButtonHtml = `<button class="button disabled" disabled style="opacity:0.65;cursor:not-allowed;">National Director Required</button>`;
             } else {
               approveButtonHtml = `
                 <button class="button amber" data-action="approve-rec" data-rec-id="${r.id}">
@@ -857,11 +831,11 @@ function recommendationsView() {
             <div class="rec-card">
               <div>
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                  <span class="rec-type-badge ${badgeClass}">${icon} ${r.type.replace("_", " ")}</span>
+                  <span class="rec-type-badge ${badgeClass}">${r.type.replace("_", " ")}</span>
                   <span class="badge ${r.urgency === "CRITICAL" ? "red" : r.urgency === "HIGH" ? "amber" : "green"}">${r.urgency}</span>
                 </div>
                 <h3 class="rec-title">${r.targetFacilityName}</h3>
-                <span class="rec-district">📍 ${r.district} • Social ROI: <b>${r.roiScore}/10</b></span>
+                <span class="rec-district">${r.district} • Social ROI: <b>${r.roiScore}/10</b></span>
                 <p class="rec-rationale">${r.rationale}</p>
                 ${r.proposedUse ? `<div style="background:#f0fdf4;border-left:3px solid #16a34a;padding:8px 10px;border-radius:4px;font-size:12px;margin-bottom:12px;"><b>Proposed New Utility:</b> ${r.proposedUse}</div>` : ""}
               </div>
@@ -958,7 +932,7 @@ function loginView() {
 
             <button type="submit" class="button full amber" style="padding:12px;font-weight:700;">Secure Login to Government Workspace</button>
             <p class="muted" style="font-size:11px;line-height:1.5;margin-top:4px;">
-              ⚠️ Unauthorized access to Government registers and budget workflows is strictly prohibited under the Information Technology Act.
+              Note: Unauthorized access to Government registers and budget workflows is strictly prohibited under the Information Technology Act.
             </p>
           </form>
         </section>
@@ -967,7 +941,7 @@ function loginView() {
         <section class="panel" style="background:#f8fafc;padding:20px;">
           <div class="panel-heading" style="margin-bottom:14px;">
             <div>
-              <h2>⚡ 1-Click Demo Login (Official Roles)</h2>
+              <h2>Demo Access (Official Roles)</h2>
               <span class="muted">Click any role to test instant hierarchical authorization</span>
             </div>
           </div>
@@ -1040,7 +1014,7 @@ function resolutionsView() {
               </div>
 
               <div class="ai-verification-badge">
-                <span>🤖 AI Visual Verification Score</span>
+                <span>Automated Visual Verification Score</span>
                 <span style="font-size:14px;color:#047857;">${res.aiVerificationScore}% Match</span>
               </div>
               <p style="font-size:11px;color:#334155;margin:8px 0 0;line-height:1.4;">${res.aiInspectionReport}</p>
@@ -1076,11 +1050,11 @@ function reportView() {
           <div class="field">
             <label>Select Issue Category</label>
             <div class="category-pills" id="category-pills-container">
-              <button type="button" class="category-pill selected" data-issue="LOCKED_TOILET">🚾 Locked Public Toilet</button>
-              <button type="button" class="category-pill" data-issue="ABANDONED_SCHOOL">🏫 Abandoned School</button>
-              <button type="button" class="category-pill" data-issue="DEFUNCT_WATER">💧 Defunct Water Plant</button>
-              <button type="button" class="category-pill" data-issue="DEFUNCT_FACILITY">⚠️ Non-Functional Facility</button>
-              <button type="button" class="category-pill" data-issue="DAMAGED_INFRASTRUCTURE">🚧 Damaged Road / Culvert</button>
+              <button type="button" class="category-pill selected" data-issue="LOCKED_TOILET">Locked Public Toilet</button>
+              <button type="button" class="category-pill" data-issue="ABANDONED_SCHOOL">Abandoned School</button>
+              <button type="button" class="category-pill" data-issue="DEFUNCT_WATER">Defunct Water Plant</button>
+              <button type="button" class="category-pill" data-issue="DEFUNCT_FACILITY">Non-Functional Facility</button>
+              <button type="button" class="category-pill" data-issue="DAMAGED_INFRASTRUCTURE">Damaged Road / Culvert</button>
             </div>
             <input type="hidden" id="selected-issue-type" value="LOCKED_TOILET">
           </div>
@@ -1116,7 +1090,7 @@ function reportView() {
                 <input id="latitude" type="number" step="any" placeholder="Latitude" value="28.6139">
                 <input id="longitude" type="number" step="any" placeholder="Longitude" value="77.2090">
               </div>
-              <button class="button secondary" type="button" data-action="locate">📍 Auto-Detect My Current GPS</button>
+              <button class="button secondary" type="button" data-action="locate">Detect My Current Location</button>
             </div>
           </div>
 
@@ -1132,14 +1106,14 @@ function reportView() {
         </form>
 
         <aside class="form-panel">
-          <h2>How AI Evaluates Your Report</h2>
+          <h2>How Reports Are Reviewed</h2>
           <div class="summary">
             <b>1. Proximity Cross-Referencing</b>
             <p class="muted" style="font-size:12px;margin:5px 0 0">Your GPS coordinates are matched against the National Public Asset Register to pinpoint the exact asset ID.</p>
           </div>
           <div class="summary">
-            <b>2. Vision AI Deterioration Analysis</b>
-            <p class="muted" style="font-size:12px;margin:5px 0 0">Visual models inspect your photo for rusted padlocks, broken glass, vegetation overgrowth, and dry taps to calculate an Abandonment Score.</p>
+            <b>2. Visual Deterioration Analysis</b>
+            <p class="muted" style="font-size:12px;margin:5px 0 0">Submitted images are inspected for rusted padlocks, broken glass, vegetation overgrowth, and dry taps to calculate an Abandonment Score.</p>
           </div>
           <div class="summary">
             <b>3. Policy Recommendation Matrix</b>
@@ -1166,11 +1140,11 @@ function confirmationView() {
             <div class="summary-row"><span>Reference ID</span><b>${submission?.id || "CIV-2026-8941"}</b></div>
             <div class="summary-row"><span>Asset</span><b>${submission?.facilityName || submission?.project || "Public Facility"}</b></div>
             <div class="summary-row"><span>Status</span><b>${badge("Confirmed Issue")}</b></div>
-            <div class="summary-row"><span>AI Verification</span><b>${submission?.aiConfidence || 92}% Confidence</b></div>
+            <div class="summary-row"><span>Verification</span><b>${submission?.aiConfidence || 92}% Confidence</b></div>
           </div>
           <div style="display:flex;gap:10px;justify-content:center;">
             <a class="button" href="#/map">View on GIS Map</a>
-            <a class="button secondary" href="#/recommendations">View AI Recommendations</a>
+            <a class="button secondary" href="#/recommendations">View Recommendations</a>
           </div>
         </section>
       </div>
@@ -1223,7 +1197,7 @@ async function detailView(id) {
       <div class="stat-grid">
         <div class="stat"><span class="stat-label">Planned progress</span><div class="stat-value">${project.plannedProgress}%</div></div>
         <div class="stat"><span class="stat-label">Actual progress</span><div class="stat-value">${project.actualProgress}%</div></div>
-        <div class="stat"><span class="stat-label">AI confidence</span><div class="stat-value">${project.aiConfidence || 89}%</div></div>
+        <div class="stat"><span class="stat-label">Verification confidence</span><div class="stat-value">${project.aiConfidence || 89}%</div></div>
         <div class="stat"><span class="stat-label">Budget</span><div class="stat-value" style="font-size:21px">${project.budget}</div></div>
       </div>
     </div>`,
@@ -1244,6 +1218,7 @@ function analyticsView() {
             </thead>
             <tbody>
               ${state.demographics
+                .slice(0, 8)
                 .map(
                   (d) =>
                     `<tr><td><b>${d.district}</b> <small style="color:#0d9488;">(${d.state || "India"})</small></td><td>${d.population.toLocaleString()}</td><td>${d.density}</td><td>${d.facilitiesCount}</td><td>${badge(d.vulnerabilityIndex > 0.35 ? "High deficit" : "Moderate")}</td></tr>`
@@ -1253,7 +1228,7 @@ function analyticsView() {
           </table>
         </section>
         <section class="panel">
-          <div class="panel-heading"><h2>AI Intelligence Summary</h2></div>
+          <div class="panel-heading"><h2>Summary of Findings</h2></div>
           ${[
             ["Facilities Analyzed", `${state.facilities.length}`],
             ["Identified for Repurposing", `${state.recommendations.filter((r) => r.type === "REPURPOSE").length}`],
@@ -1408,12 +1383,12 @@ function bindDataGovEvents() {
   if (syncBtn) {
     syncBtn.onclick = async () => {
       syncBtn.disabled = true;
-      syncBtn.textContent = "⏳ Ingesting Data.gov.in APIs...";
+      syncBtn.textContent = "Syncing data.gov.in APIs...";
       const res = await dataGovApi.syncRealtimeData();
       syncBtn.textContent = `✓ Ingested ${res.syncedCatalogsCount} Official APIs (${new Date().toLocaleTimeString()})`;
       setTimeout(() => {
         syncBtn.disabled = false;
-        syncBtn.textContent = "⚡ Sync Data.gov.in Live APIs";
+        syncBtn.textContent = "Sync data.gov.in Live APIs";
       }, 3500);
       render();
     };
